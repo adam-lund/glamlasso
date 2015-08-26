@@ -1,9 +1,11 @@
 Package: glamlasso
 Type: Package
-Title: What the package does (short line)
+Title: Lasso Penalization in Large Scale Generalized Linear Array Models
 Version: 1.0
-Date: 2015-08-26
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Date: 2015-02-11
+Author: Adam Lund
+Maintainer: Adam Lund <adam.lund@math.ku.dk>
+Description: Efficient design matrix free procedure for Lasso regularized estimation in large scale 3-dimensional generalized linear array models. The Gaussian model with identity link, the Binomial model with logit link, the Poisson model with log link and the Gamma model with log link is currently implemented.
+License: GPL-3
+Imports: Rcpp (>= 0.11.2)
+LinkingTo: Rcpp, RcppArmadillo
