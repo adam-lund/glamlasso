@@ -68,7 +68,7 @@ int btenterprox = 0, btiternewt = 0, btiterprox = 0,
 
 if(family == "gaussian"){//gaussian#################################################
 
-if(weightedgaussian == 0){
+if(weightedgaussian == 0){//no prior weights
   
 ////declare variables
 double delta, 
@@ -197,7 +197,7 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
                             Rcpp::Named("STOPprox") = STOPprox
                             );
 
-}else if (weightedgaussian == 1){// if weights are used// solve (one) weighted ls problem
+}else if (weightedgaussian == 1){// if prior weights are used, solve (one) weighted ls problem
 
 ////declare variables
 int ascentprox, ascentproxmax,
@@ -419,7 +419,7 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
 
 }else{//general#################################################
 
-if (iwls == "kron"){ // solve pure ls problems
+if (iwls == "kron"){ //use a kronecker approximation and solve subproblems as pure ls
 
 ////declare variables
 int btnewtmax = 100;
@@ -445,6 +445,7 @@ arma::mat Beta(p1, p2 * p3),  Betaprevnewt(p1, p2 * p3), Betaprevprox(p1, p2 * p
           MuEta(n1, n2 * n3), MuEtatmp(n1, n2 * n3), 
           Phi1tW1Phi1, Phi2tW2Phi2, Phi3tW3Phi3,  PhitWZ, Prop(p1, p2 * p3), 
           SqrtW, SqrtW1(n1, n1), SqrtW2(n2, n2), SqrtW3(n3, n3), SqrtW1Phi1, SqrtW2Phi2, SqrtW3Phi3, SqrtWZ, Submat(n1, n2),
+          U,
           W(n1, n2 * n3), W1(n1, n1), W2(n2, n2), W3(n3, n3), Wtrue(n1, n2 * n3), 
           X(p1, p2 * p3), 
           Z(n1, n2 * n3);
@@ -492,15 +493,17 @@ for (int j = 0; j < nlambda; j++){
 Gamma = penaltyfactor * lambda(j);
 objnewt(0) = loglikeBeta + penalty(Gamma, Betaprevprox);
 
-/////kron iwls loop based on a kron newton approximation using kronecker structured weights.
+/////outer loop based using kronecker structured weights.
 for (int i = 0; i < maxiternewt; i++){
 
 ////true iwls weights W
-Wtrue =  Weights % dmu(Eta, family) % dtheta(Eta, family);     //a * (mu’)^2 * theta’/mu’ = theta'mu'
-////working responses (only relie on current Beta!)
-Z = (Y - MuEta) % dg(MuEta, family) + Eta;
+Wtrue =  Weights % dmu(Eta, family) % dtheta(Eta, family);     //a * (mu’)^2 * theta’/mu’ = a * theta'mu'
 
-////tensor approximation of W, which dimension should we use??
+////kron approx to W ie W approx W3 kron W2 kron W1. How to pick W3,W2,W1? 
+//let W2 = I, W1 = I and W3 such that diag(W3) = mwtrue and offdiag(W3) = 0 then 
+//each of the first n1n2 vals in diag(W) are approx by their average i.e. mwtrue(1), 
+//each of the next n1n2 vals in diag(W) are approx by their average i.e. mwtrue(2), etc
+
 for (int r = 0; r < n3; r++){
 
 mwtrue(r) = mean(mean(Wtrue.cols(r * n2, (r + 1) * n2 - 1)));
@@ -508,6 +511,10 @@ Submat.fill(mwtrue(r));
 W.cols(r * n2, (r + 1) * n2 - 1) = Submat;
 
 }
+
+////working response
+U = dtheta(Eta, family) % (Y - mu(Eta, family));        //theta'(Eta) * (Y - mu(Eta)) / psi
+Z = pow(W, -1) % U + Eta;
 
 ////precompute
 SqrtW = sqrt(W);
@@ -521,6 +528,9 @@ Phi1tW1Phi1 = Phi1.t() * Phi1;
 Phi2tW2Phi2 = Phi2.t() * Phi2;
 Phi3tW3Phi3 = Phi3.t() * W3 * Phi3;
 
+SqrtWZ = SqrtW % Z;
+PhitWZ = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), W % Z, n2, n3), n3, p1), p1, p2);
+
 //proximal step size
 eig1 = arma::eig_sym(Phi1tW1Phi1);
 eig2 = arma::eig_sym(Phi2tW2Phi2);
@@ -529,10 +539,6 @@ eig3 = arma::eig_sym(Phi3tW3Phi3);
 alphamax =  as_scalar(max(kron(eig1, kron(eig2 , eig3)))); 
 L = alphamax / n;
 delta = 1 / L; //can go up to 2 / L!
-
-////precompute
-SqrtWZ = SqrtW % Z;
-PhitWZ = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), W % Z, n2, n3), n3, p1), p1, p2);
 
 /////proximal loop
 for (int k = 0; k < maxiterprox; k++){

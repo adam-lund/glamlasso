@@ -35,6 +35,8 @@
 //#include "/Users/adamlund/Documents/KU/Phd/Project/Computer/Vincent/timer/simple_timer.h"
 
 #include <math.h>
+//#include <cmath>
+//#include <tr1/cmath>
 using namespace std;
 //using namespace arma;
 
@@ -341,39 +343,39 @@ return out;
 }
     
 //////////////////// constant term  C, c or tau SHOULD IT INCLUDE PRIOR WEIGHTS A????
-arma::mat c(arma::mat const& y, string fam) {
+//arma::mat c(arma::mat const& y, string fam) {
 
-arma::mat out(y.n_rows, y.n_cols);
+//arma::mat out(y.n_rows, y.n_cols);
 
-if(fam == "binomial"){
+//if(fam == "binomial"){
 
-out = y * 0; //WRONG!!!!!!!!!!!!
+//out = y * 0; //WRONG!!!!!!!!!!!!
 
-}else if(fam == "poisson"){
+//}else if(fam == "poisson"){
 
-for (int i = 0; i < out.n_rows; i++){
+//for (int i = 0; i < out.n_rows; i++){
   
-for (int j = 0; j < out.n_cols; j++){
+//for (int j = 0; j < out.n_cols; j++){
 
-out(i, j) = - std::lgamma(y(i, j) + 1);
+//out(i, j) = - std::lgamma(y(i, j) + 1);
 
-}
+//}
 
-}
+//}
 
-}else if(fam == "gaussian"){
+//}else if(fam == "gaussian"){
 
-out = - pow(y, 2) / 2 - log(2 * 3.141592653589793238463) / 2;
+//out = - pow(y, 2) / 2 - log(2 * 3.141592653589793238463) / 2;
 
-}else if(fam == "gamma"){
+//}else if(fam == "gamma"){
 
-out = y * 0; //WRONG!!!!!!!!!!!!
+//out = y * 0; //WRONG!!!!!!!!!!!!
 
-}
+//}
 
-return out;
+//return out;
 
-}
+//}
 
 ////////////////////   negative log-likelihood-function
 double loglike(arma::mat const& Y, 
@@ -385,7 +387,7 @@ double loglike(arma::mat const& Y,
 double out;
 arma::mat thetaeta = theta(eta, fam);
 
-arma::mat tmp = b(thetaeta, fam) - Y % thetaeta - c(Y, fam);
+arma::mat tmp = b(thetaeta, fam) - Y % thetaeta; //- c(Y, fam);
 
 //out = accu(tmp) / n;
 out = accu(Weights % tmp) / n;
