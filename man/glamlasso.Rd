@@ -2,11 +2,12 @@
 % Please edit documentation in R/glamlasso.R
 \name{glamlasso}
 \alias{glamlasso}
-\title{Lasso Penalization in Large Scale Generalized Linear Array Models}
+\title{Penalization in Large Scale Generalized Linear Array Models}
 \usage{
-glamlasso(X1, X2, X3,
+glamlasso(X,
           Y,
           family = c("gaussian", "binomial", "poisson", "gamma"),
+          penalty = c("lasso", "scad"),
           Weights = NULL,
           nlambda = 100,
           lambda.min.ratio = 1e-04,
@@ -15,24 +16,28 @@ glamlasso(X1, X2, X3,
           reltolinner = 1e-07,
           reltolouter = 1e-04,
           maxiter = 15000,
+          steps = 1,
           maxiterinner = 3000,
           maxiterouter = 25,
           btinnermax = 100,
-          iwls = c("kron","exact"),
+          iwls = c("exact", "identity", "kron1", "kron2"),
           nu = 1)
 }
 \arguments{
-\item{X1,X2,X3}{The three Kronecker components of the Kronecker design matrix.
-These are  matrices of sizes \eqn{n_1   \times p_1}, \eqn{n_2 \times p_2}, \eqn{n_3 \times p_3}.}
+\item{X}{A list containing the Kronecker components (2 or 3) of the Kronecker design matrix.
+These are  matrices of sizes \eqn{n_i   \times p_i}.}
 
-\item{Y}{The response values, a 3d array of size \eqn{n_1 \times n_2 \times n_3}. For option
+\item{Y}{The response values, an array of size \eqn{n_1 \times\cdots\times n_d}. For option
 \code{family = "binomial"} this array must contain the proportion of successes and the
 number of trials is then specified as \code{Weights} (see below).}
 
-\item{family}{A string indicating the model family (essentially the response distribution). Possible values
+\item{family}{A string specifying the model family (essentially the response distribution). Possible values
 are \code{"gaussian", "binomial", "poisson", "gamma"}.}
 
-\item{Weights}{Observation weights, a 3d array of size \eqn{n_1 \times n_2 \times n_3}. For option
+\item{penalty}{A string specifying the penalty. Possible values
+are \code{"lasso", "scad"}.}
+
+\item{Weights}{Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}. For option
 \code{family = "binomial"} this array must contain the number of trials and must be provided.}
 
 \item{nlambda}{The number of \code{lambda} values.}
@@ -42,7 +47,7 @@ are \code{"gaussian", "binomial", "poisson", "gamma"}.}
 
 \item{lambda}{The sequence of penalty parameters for the regularization path.}
 
-\item{penalty.factor}{A 3d array of size \eqn{p_1 \times p_2 \times p_3}. Is multiplied
+\item{penalty.factor}{An array of size \eqn{p_1 \times \cdots \times p_d}. Is multiplied
 with each element in \code{lambda} to allow differential shrinkage on the coefficients.}
 
 \item{reltolinner}{The convergence tolerance for the inner loop}
@@ -52,14 +57,15 @@ with each element in \code{lambda} to allow differential shrinkage on the coeffi
 \item{maxiter}{The maximum number of inner iterations allowed for each \code{lambda}
 value, when  summing over all outer iterations for said \code{lambda}.}
 
+\item{steps}{The number of steps used in the multi-step adaptive lasso algorithm for non-convex penalties. Automatically set to 1 when \code{penalty = "lasso"}.}
+
 \item{maxiterinner}{The maximum number of inner iterations allowed for each outer iteration.}
 
 \item{maxiterouter}{The maximum number of outer iterations allowed for each lambda.}
 
 \item{btinnermax}{Maximum number of backtracking steps allowed in each inner iteration. Default is \code{btinnermax = 100}.}
 
-\item{iwls}{A string (\code{iwls = "exact"} or \code{iwls = "kron"}) indicating whether to use the exact
-iwls weight  matrix or use a kronecker structured approximation to it.}
+\item{iwls}{A string indicating whether to use the exact iwls weight matrix or use a kronecker structured approximation to it.}
 
 \item{nu}{A number between 0 and 1 that controls the step size \eqn{\delta} in the proximal algorithm (inner loop) by
 scaling the upper bound \eqn{\hat{L}_h} on the Lipschitz constant \eqn{L_h} (see \cite{Lund et al., 2015}).
@@ -73,37 +79,36 @@ used if \code{iwls = "exact"}.}
 \value{
 An object with S3 Class "glamlasso".
 \item{family}{A string indicating the model family.}
-\item{coef}{A \eqn{p_1p_2p_3 \times} \code{nlambda} matrix containing the estimates of
+\item{coef}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of
 the model coefficients (\code{beta}) for each \code{lambda}-value.}
 \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
 \item{df}{The number of nonzero coefficients for each value of \code{lambda}.}
-\item{dimcoef}{A vector giving the dimension of the 3d model coefficient array \eqn{\beta}.}
-\item{dimobs}{A vector giving the dimension of the 3d observation (response) array \code{Y}.}
+\item{dimcoef}{A vector giving the dimension of the model coefficient array \eqn{\beta}.}
+\item{dimobs}{A vector giving the dimension of the observation (response) array \code{Y}.}
 \item{Iter}{A list with 4 items:
 \code{bt_iter_inner}  is total number of backtracking steps performed in the inner loop,
-\code{bt_enter_inner} is the number of times the backtraking is initiated in the inner loop,
+\code{bt_enter_inner} is the number of times the backtracking is initiated in the inner loop,
 \code{bt_iter_outer} is total number of backtracking steps performed in the outer loop,
 and \code{iter_mat} is a \code{nlambda} \eqn{\times} \code{maxiterouter} matrix containing the  number of
 inner iterations for each \code{lambda} value and each outer iteration and  \code{iter} is total number of iterations i.e. \code{sum(Iter)}.}
 }
 \description{
-Efficient design matrix free procedure for fitting a Lasso
-regularization path for large scale 3-dimensional generalized linear array models.
-The Gaussian model with identity link, the Binomial model with logit link, the Poisson model
+Efficient design matrix free procedure for fitting large scale penalized  2 or 3-dimensional
+generalized linear array models. Currently the LASSO penalty and the SCAD penalty are both implemented. Furthermore,
+the Gaussian model with identity link,  the Binomial model with logit link, the Poisson model
 with log link and the Gamma model with log link is currently implemented. The \code{glamlasso} function
-utilize the CGD-FPG algorithm from \cite{Lund et al., 2015}.
+utilize a gradient descent and proximal gradient based algorithm, see  \cite{Lund et al., 2015}.
 }
 \details{
 We consider a generalized linear model (GLM) with Kronecker structured design matrix given as
- \deqn{X = X_3\otimes X_2\otimes X_1,}
-where \eqn{X_i, i=1,2,3} are so called marginal \eqn{n_i\times p_i} design matrices (Kronecker components).
+ \deqn{X = \bigotimes_{i=1}^d X_i,}
+where \eqn{X_1,X_2,\ldots} are the marginal \eqn{n_i\times p_i} design matrices (Kronecker components).
 
 We use the generalized linear array model (GLAM) framework to write the model equation as
- \deqn{g(M) = \rho(X_3,\rho(X_2,\rho(X_1,\Theta))).}
-Here \eqn{\rho} is the so called rotated \eqn{H}-transfrom (see \cite{Currie et al., 2006} and \code{\link{RH}}),
- \eqn{M} is a  3-dimensional array such that \eqn{M_{i,j,k}=E(Y_{i,j,k})} where \eqn{Y} is the
-3-dimensional response variable array. Finally \eqn{\Theta} is the 3-dimensional  model coefficient (parameter) array and
-\eqn{g} is a link function.
+ \deqn{g(M) = \rho(X_d,\rho(X_{d-1},\ldots,\rho(X_1,\Theta))),}
+where \eqn{\rho} is the so called rotated \eqn{H}-transfrom, \eqn{M} is an array containing the mean of the
+response variable array \eqn{Y}, \eqn{\Theta} is the  model coefficient (parameter) array and \eqn{g} is a link function.
+ See \cite{Currie et al., 2006} for more details.
 
 Let \eqn{\theta : = vec(\Theta)} denote the vectorized version of the parameter array. The related log-likelihood is a function of
 \eqn{\theta} through the linear predictor \eqn{\eta} i.e. \eqn{\theta \mapsto l(\eta(\theta))}.
@@ -111,15 +116,16 @@ In the usual exponential family framework this can be expressed as
 \deqn{l(\eta(\theta)) = \sum_{i = 1}^n a_i \frac{y_i \vartheta(\eta_i(\theta)) - b(\vartheta(\eta_i(\theta)))}{\psi}+c(y_i,\psi)}
 where \eqn{\vartheta}, the canonical parameter map,  is linked to the  linear predictor via the identity
  \eqn{\eta(\theta) = g(b'(\vartheta))} with \eqn{b} the cumulant function. Here \eqn{a_i \ge 0, i = 1,\ldots,n} are observation weights and
- \eqn{\psi} is the dipersion parameter.
+ \eqn{\psi} is the dispersion parameter.
 
-Using only the marginal matrices \eqn{X_i, i=1,2,3}, the function \code{glamlasso} solves the
-\eqn{\ell_1}-penalized (Lasso) estimation problem
-\deqn{\min_{\theta} -l(\eta(\theta)) + \lambda \Vert \theta \Vert_1}
-in this GLAM setup for a sequence of penalty parameters \eqn{\lambda>0}. The underlying algorithm is based on a coordinate gradient descent
-(CGD) scheme and a fast proximal gradient (FPG) method, see \cite{Lund et al., 2015} for more details.
+Using only the marginal matrices \eqn{X_1,X_2,\ldots} and with \eqn{J} a penalty function, the function \code{glamlasso} solves the penalized estimation problem
+\deqn{\min_{\theta} -l(\eta(\theta)) + \lambda J (\theta),}
+in the GLAM setup for a sequence of penalty parameters \eqn{\lambda>0}. The underlying algorithm is based on an outer
+gradient descent loop and an inner proximal gradient based loop. We note that if \eqn{J} is not
+convex, as with the SCAD penalty, we use the multiple step adaptive lasso procedure to loop over the inner proximal algorithm, see \cite{Lund et al., 2015} for more details.
 }
 \examples{
+\dontrun{
 ##size of example
 n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 
@@ -127,13 +133,14 @@ n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 X1 <- matrix(rnorm(n1 * p1), n1, p1)
 X2 <- matrix(rnorm(n2 * p2), n2, p2)
 X3 <- matrix(rnorm(n3 * p3), n3, p3)
+X <- list(X1, X2, X3)
 
 ##gaussian example
 Beta <- array(rnorm(p1 * p2 * p3) * rbinom(p1 * p2 * p3, 1, 0.1), c(p1 , p2, p3))
 mu <- RH(X3, RH(X2, RH(X1, Beta)))
 Y <- array(rnorm(n1 * n2 * n3, mu), dim = c(n1, n2, n3))
 
-fit <- glamlasso(X1, X2, X3, Y, family = "gaussian", iwls = "exact")
+fit <- glamlasso(X, Y, family = "gaussian", penalty = "lasso", iwls = "exact")
 Betafit <- fit$coef
 
 modelno <- length(fit$lambda)
@@ -147,7 +154,7 @@ Beta <- array(rnorm(p1 * p2 * p3, 0, 0.1) * rbinom(p1 * p2 * p3, 1, 0.1), c(p1 ,
 
 mu <- RH(X3, RH(X2, RH(X1, Beta)))
 Y <- array(rpois(n1 * n2 * n3, exp(mu)), dim = c(n1, n2, n3))
-fit <- glamlasso(X1, X2, X3, Y, family = "poisson", iwls = "exact", nu = 0.1)
+fit <- glamlasso(X, Y, family = "poisson", penalty = "lasso", iwls = "exact", nu = 0.1)
 Betafit <- fit$coef
 
 modelno <- length(fit$lambda)
@@ -155,6 +162,7 @@ m <- min(Betafit[ , modelno], c(Beta))
 M <- max(Betafit[ , modelno], c(Beta))
 plot(c(Beta), type="l", ylim = c(m, M))
 lines(Betafit[ , modelno], col = "red")
+}
 }
 \author{
 Adam Lund
@@ -164,7 +172,7 @@ Maintainer: Adam Lund, \email{adam.lund@math.ku.dk}
 \references{
 Lund, A., M. Vincent, and N. R. Hansen (2015). Penalized estimation in
 large-scale generalized linear array models.
-\emph{...}. ...
+\emph{ArXiv}.
 
 Currie, I. D., M. Durban, and P. H. C. Eilers (2006). Generalized linear
 array models with applications to multidimensional smoothing.

@@ -1,12 +1,11 @@
 /*  
-    Two Rcpp functions used in connection with LASSO regularization for 
-    generalized linear array models (GLAM).
-    The first function, pgal, contains a proximal gradient based IWLS algorithm that solves
-    the LASSO problem in the GLAM framework.
-    The second function, getobj, computes the objective values for this LASSO problem.
+    Two Rcpp functions used to perform penalized estimation in generalized linear array models (GLAM).
+    The first function, gdpg, contains a gradient descent and proximal gradient based algorithm that solves
+    the penalized (LASSO and SCAD) problem in the GLAM framework.
+    The second function, getobj, computes the objective values for the corresponding problem.
 
     Intended for use with R.
-    Copyright (C) 2015 Adam Lund
+    Copyright (C) 2016 Adam Lund
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -32,19 +31,25 @@ using namespace std;
 using namespace arma;
 
 /////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////// cgd fpg algorithm ///////////////////////////////////
+/////////////////////////////////// gd pg algorithm ///////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////
 //[[Rcpp::export]]
-Rcpp::List pgal(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3,
-                arma::mat Y, arma::mat Weights,
+Rcpp::List gdpg(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3,
+                arma::mat Y, 
+                arma::mat Weights,
                 std::string family,
+                std::string penalty,
                 std::string iwls, 
                 double nu,
-                arma::vec lambda, int makelamb,  int nlambda, double  lambdaminratio,
+                arma::vec lambda, 
+                int makelamb,  
+                int nlambda, 
+                double lambdaminratio,
                 arma::mat penaltyfactor,
                 double reltolprox,
                 double reltolnewt,
                 int maxiter,
+                int maxstep,
                 int maxiterprox,
                 int maxiternewt,
                 int btproxmax,
@@ -65,6 +70,8 @@ int n = n1 * n2 * n3;
 int btenterprox = 0, btiternewt = 0, btiterprox = 0,
     endmodelno = nlambda,
     STOPmaxiter = 0,  STOPnewt = 0, STOPprox = 0;
+    
+double ascad = 3.7;
 
 if(family == "gaussian"){//gaussian#################################################
 
@@ -81,9 +88,12 @@ arma::vec df(nlambda),
           Iter(nlambda),
           obj(maxiterprox + 1);
 
-arma::mat Beta(p1, p2 * p3), Betaprev(p1, p2 * p3), Betas(p, nlambda), 
+arma::mat absBeta(p1, p2 * p3),
+          Beta(p1, p2 * p3), Betaprev(p1, p2 * p3), Betas(p, nlambda), 
+          dpen(p1, p2 * p3),
           Gamma(p1, p2 * p3), GradsqlossX(p1, p2 * p3),  
-          Prop(p1, p2 * p3), Phi1tPhi1, Phi2tPhi2, Phi3tPhi3,  PhitY, 
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3,  PhitY, pospart(p1, p2 * p3), Prop(p1, p2 * p3),
+          wGamma(p1, p2 * p3),
           X(p1, p2 * p3);
  
 ////fill variables 
@@ -125,24 +135,44 @@ l = l - difflamb;
 
 }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
         
-////lambda loop
+////start lambda loop
 for (int j = 0; j < nlambda; j++){
   
 Gamma = penaltyfactor * lambda(j);
 
-////proximal loop
+/////start MSA loop
+for (int s = 0; s < maxstep; s++){
+
+if(s == 0){
+  
+if(penalty != "lasso"){wGamma =  Gamma / lambda(j);}else{wGamma = Gamma;}
+  
+}else{ 
+
+if(penalty == "scad"){
+
+absBeta =  abs(Beta);
+pospart = ((ascad * Gamma - absBeta) + (ascad * Gamma - absBeta)) / 2;
+dpen = sign(Beta) % (Gamma % (absBeta <= Gamma) + pospart / (ascad - 1) % (absBeta > Gamma));
+wGamma = abs(dpen) % penaltyfactor % (Beta != 0) + Gamma % (Beta == 0);
+
+}
+
+}
+
+////start proximal loop
 for (int k = 0; k < maxiterprox; k++){
   
 if(k == 0){
  
-obj(0) = sqlossBeta + penalty(Gamma, Beta);
+obj(0) = sqlossBeta + l1penalty(wGamma, Beta);//!!!!!!!!!!!!!!wgamma??????????????
 Betaprev = Beta;
 
 }else{
   
 X = Beta + (k - 2) / (k + 1) * (Beta - Betaprev);
 GradsqlossX = (RHmat(Phi3tPhi3, RHmat(Phi2tPhi2, RHmat(Phi1tPhi1, X, p2, p3), p3, p1), p1, p2) - PhitY) / n;
-Prop = prox_l1(X - delta * GradsqlossX, delta * Gamma);
+Prop = prox_l1(X - delta * GradsqlossX, delta * wGamma);//!!!!!!!!!!!!!!wgamma??????????????
 sqlossProp = sqloss(Phi1, Phi2, Phi3, Y, Prop, n, p2, p3, n1, n2);
 
 Betaprev = Beta;
@@ -152,7 +182,7 @@ sqlossBeta = sqlossProp;
 }
                 
 Iter(j) = k + 1;
-obj(k + 1) = sqlossBeta + penalty(Gamma, Beta);
+obj(k + 1) = sqlossBeta + l1penalty(wGamma, Beta);
 
 ////proximal convergence check //fista not descent!
 relobjprox = abs(obj(k + 1) - obj(k)) / abs(obj(k)); 
@@ -169,7 +199,9 @@ break;
 
 }
 
-} //end proximal loop
+}//end proximal loop
+
+
 
 df(j) = p - accu((Beta == 0));
 Betas.col(j) = vectorise(Beta);
@@ -185,7 +217,9 @@ break;
 
 }
 
-} //end lambda loop
+}//end MSA loop
+
+}//end lambda loop
 
 output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
                             Rcpp::Named("df") = df,
@@ -194,8 +228,7 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
                             Rcpp::Named("lambda") = lambda,
                             Rcpp::Named("STOPmaxiter") = STOPmaxiter,
                             Rcpp::Named("STOPnewt") = STOPnewt,
-                            Rcpp::Named("STOPprox") = STOPprox
-                            );
+                            Rcpp::Named("STOPprox") = STOPprox);
 
 }else if (weightedgaussian == 1){// if prior weights are used, solve (one) weighted ls problem
 
@@ -207,8 +240,7 @@ double alphamax,
        delta, deltamin,
        Lmax,  
        relobjprox, 
-       sprox,
-       tprox, 
+       sprox, 
        valprox, 
        wmax, wsqlossBeta, wsqlossProp, wsqlossX;  
        
@@ -217,13 +249,15 @@ arma::vec df(nlambda),
           Iter(nlambda), 
           objprox(maxiterprox + 1);
 
-arma::mat Beta(p1, p2 * p3), Betaprevprox(p1, p2 * p3), Betas(p, nlambda), BTprox(nlambda, maxiterprox + 1),  
+arma::mat absBeta(p1, p2 * p3),
+          Beta(p1, p2 * p3), Betaprevprox(p1, p2 * p3), Betas(p, nlambda), BTprox(nlambda, maxiterprox + 1),  
+          dpen(p1, p2 * p3),
           Eta(n1, n2 * n3), 
           Gamma(p1, p2 * p3), GradwsqlossX(p1, p2 * p3),  
           MuEta(n1, n2 * n3), 
-          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitWZ, Prop(p1, p2 * p3), 
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitWZ, pospart(p1, p2 * p3), Prop(p1, p2 * p3), 
           SqrtW, SqrtWZ,  
-          W(n1, n2 * n3),
+          W(n1, n2 * n3), wGamma(p1, p2 * p3),
           X(p1, p2 * p3), 
           Z(n1, n2 * n3);
 
@@ -290,20 +324,40 @@ l = l - difflamb;
 
 }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
     
-//lambda loop
+//start lambda loop
 for (int j = 0; j < nlambda; j++){
   
 Gamma = penaltyfactor * lambda(j);
 
 ascentprox = 0;
-            
-/////proximal loop
+
+//start MSA loop
+for (int s = 0; s < maxstep; s++){
+
+if(s == 0){
+  
+if(penalty != "lasso"){wGamma =  Gamma / lambda(j);}else{wGamma = Gamma;}
+  
+}else{ 
+
+if(penalty == "scad"){
+
+absBeta =  abs(Beta);
+pospart = ((ascad * Gamma - absBeta) + (ascad * Gamma - absBeta)) / 2;
+dpen = sign(Beta) % Gamma % ((absBeta <= Gamma) + pospart / (ascad - 1) % (absBeta > Gamma));
+wGamma = abs(dpen) % Gamma / lambda(j) % (Beta != 0) + lambda(j) * (Beta == 0);
+
+}
+
+}
+
+/////start proximal loop
 for (int k = 0; k < maxiterprox; k++){
   
 if(k == 0){
 
 Betaprevprox = Beta;
-objprox(0) = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Beta, n, p2, p3, n1, n2) + penalty(Gamma, Beta);
+objprox(0) = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Beta, n, p2, p3, n1, n2) + l1penalty(wGamma, Beta);//!!!!!!!!!!!!!!wgamma??????????????
 BTprox(j, k) = 1; //force initial backtracking (if deltamin < delta)
 
 }else{
@@ -317,7 +371,7 @@ if(BTprox(j, k - 1) > 0){btprox = 1;}else{btprox = 0;}
 ////check for divergence
 if(ascentprox > ascentproxmax){btprox = 1;}
 
-if((btprox == 1 & deltamin < delta) || nu == 0){//backtrack
+if((btprox == 1 && deltamin < delta) || nu == 0){//backtrack
                         
 wsqlossX = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, X, n, p2, p3, n1, n2);
 
@@ -326,7 +380,7 @@ BTprox(j, k) = 0;
 
 while (BTprox(j, k) < btproxmax){
 
-Prop = prox_l1(X - delta * GradwsqlossX, delta * Gamma);
+Prop = prox_l1(X - delta * GradwsqlossX, delta * wGamma); //!!!!!!!!!!!!!!wgamma??????????????
 wsqlossProp = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 valprox = as_scalar(wsqlossX + accu(GradwsqlossX % (Prop - X)) + 1 / (2 * delta) * sum_square(Prop - X));
 
@@ -350,7 +404,7 @@ if(BTprox(j, k) == btproxmax){STOPprox = 1;}
 
 }else{//no backtracking
 
-Prop = prox_l1(X - delta * GradwsqlossX, delta * Gamma);
+Prop = prox_l1(X - delta * GradwsqlossX, delta * wGamma);//!!!!!!!!!!!!!!wgamma??????????????
 wsqlossProp = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 
 }
@@ -358,7 +412,7 @@ wsqlossProp = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 Betaprevprox = Beta;
 Beta = Prop;
 wsqlossBeta = wsqlossProp;
-objprox(k) = wsqlossBeta + penalty(Gamma, Beta);
+objprox(k) = wsqlossBeta + l1penalty(wGamma, Beta); //!!!!!!!!!!!!!!wgamma??????????????
 Iter(j) = k;
 
 ////proximal divergence check
@@ -397,7 +451,9 @@ endmodelno = j;
 break;
   
 }
-  
+
+}//end MSA loop
+
 }//end lambda loop
 
 btenterprox = accu((BTprox > -1));
@@ -412,14 +468,13 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
                             Rcpp::Named("lambda") = lambda,
                             Rcpp::Named("STOPmaxiter") = STOPmaxiter,
                             Rcpp::Named("STOPnewt") = STOPnewt,
-                            Rcpp::Named("STOPprox") = STOPprox  
-                            );  
+                            Rcpp::Named("STOPprox") = STOPprox);  
   
 }
 
 }else{//general#################################################
 
-if (iwls == "kron"){ //use a kronecker approximation and solve subproblems as pure ls
+if (iwls != "exact"){ //use a kronecker approximation and solve subproblems as pure ls
 
 ////declare variables
 int btnewtmax = 100;
@@ -429,30 +484,43 @@ double alphamax, alphanewt = 0.2,
        L, loglikeBeta, logliketmp,  
        relobjnewt, relobjprox, 
        sqlossBeta, sqlossProp, snewt = 0.5, 
-       tnewt, 
+       tmp, tnewt, 
        valnewt;
-            
+         
+arma::uvec idx(n3),
+           tmpidx(n3);   
+         
 arma::vec mwtrue(n3), 
           df(nlambda),
           eig1, eig2, eig3,
-          objnewt(maxiternewt + 1), objprox(maxiterprox + 1);
-            
-arma::mat Beta(p1, p2 * p3),  Betaprevnewt(p1, p2 * p3), Betaprevprox(p1, p2 * p3), Betas(p, nlambda), BTnewt(nlambda, maxiternewt + 1), 
-          DeltaBeta(p1, p2 * p3), 
+          objnewt(maxiternewt + 1), objprox(maxiterprox + 1),
+          vhat1(n1), vhat2(n2), vhat3(n3);
+        
+arma::mat absBeta(p1, p2 * p3),
+          Beta(p1, p2 * p3),  Betaprevnewt(p1, p2 * p3), Betaprevprox(p1, p2 * p3), Betas(p, nlambda), BTnewt(nlambda, maxiternewt + 1), 
+          DeltaBeta(p1, p2 * p3),  dpen(p1, p2 * p3), 
           Eta(n1, n2 * n3), Etatmp(n1, n2 * n3), 
           Gamma(p1, p2 * p3), GradloglikeBeta(p1, p2 * p3), GradsqlossX(p1, p2 * p3), 
           Iter(nlambda, maxiternewt), 
           MuEta(n1, n2 * n3), MuEtatmp(n1, n2 * n3), 
-          Phi1tW1Phi1, Phi2tW2Phi2, Phi3tW3Phi3,  PhitWZ, Prop(p1, p2 * p3), 
+          Phi1tW1Phi1, Phi2tW2Phi2, Phi3tW3Phi3,  PhitWZ, pospart(p1, p2 * p3), Prop(p1, p2 * p3), 
           SqrtW, SqrtW1(n1, n1), SqrtW2(n2, n2), SqrtW3(n3, n3), SqrtW1Phi1, SqrtW2Phi2, SqrtW3Phi3, SqrtWZ, Submat(n1, n2),
           U,
-          W(n1, n2 * n3), W1(n1, n1), W2(n2, n2), W3(n3, n3), Wtrue(n1, n2 * n3), 
+          W(n1, n2 * n3), W1(n1, n1), W2(n2, n2), W3(n3, n3), wGamma(p1, p2 * p3), Wtrue(n1, n2 * n3), 
           X(p1, p2 * p3), 
           Z(n1, n2 * n3);
 
 ////fill variables
-W3.fill(0);
-SqrtW3.fill(0);
+W1.eye();
+SqrtW1 = W1;
+
+W2.eye();
+SqrtW2 = W2;
+
+W3.eye();
+SqrtW3 = W3;
+
+W.fill(1);
 
 Iter.fill(0);
 BTnewt.fill(-1);
@@ -460,11 +528,14 @@ Betas.fill(NA_REAL);
 objnewt.fill(NA_REAL);
 objprox.fill(NA_REAL);
 
+//idx = 0 * n2, 1 * n2,  2 * n2, ...,  (n3 - 1) * n2
+for (int i = 0; i < n3; i++){idx(i) = i * n2;}
+
 ////initialize
 Betaprevprox.fill(0); //initialize at zero
 Beta = Betaprevprox; 
 Betaprevnewt = Beta;
-Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
+Eta = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
 MuEta = mu(Eta, family);
 
@@ -491,43 +562,94 @@ l = l - difflamb;
 for (int j = 0; j < nlambda; j++){
 
 Gamma = penaltyfactor * lambda(j);
-objnewt(0) = loglikeBeta + penalty(Gamma, Betaprevprox);
+objnewt(0) = loglikeBeta + l1penalty(Gamma, Betaprevprox);
 
-/////outer loop based using kronecker structured weights.
+/////outer loop 
 for (int i = 0; i < maxiternewt; i++){
 
 ////true iwls weights W
 Wtrue =  Weights % dmu(Eta, family) % dtheta(Eta, family);     //a * (mu’)^2 * theta’/mu’ = a * theta'mu'
+  
+if(iwls == "kron1"){
+  
+tmp = exp(1.0 / (n1 * n2 * n3) * sum(sum(log(Wtrue)))); 
+//pow(prod(prod(Wtrue)), 1 / (n1 * n2 * n3));
+  
+for (int i1 = 0; i1 < n1; i1++){
 
-////kron approx to W ie W approx W3 kron W2 kron W1. How to pick W3,W2,W1? 
+vhat1(i1) = exp(1.0 / (n2 * n3) * sum(log(Wtrue.row(i1))));
+//pow(prod(Wtrue.row(i1)), 1 / (n2 * n3));
+
+}
+
+for (int i2 = 0; i2 < n2; i2++){
+  
+tmpidx = i2 + idx;
+vhat2(i2) = exp(1.0 / (n1 * n3) * sum(sum(log(Wtrue.cols(tmpidx)))));
+//pow(prod(prod(Wtrue.cols(tmpidx))), 1 / (n1 * n3)); 
+
+}
+
+for (int i3 = 0; i3 < n3; i3++){
+
+vhat3(i3) = exp(1.0 / (n1 * n2) * sum(sum(log(Wtrue.cols(i3 * n2, (i3 + 1) * n2 - 1)))));
+//pow(prod(prod(Wtrue.cols(i3 * n2, (i3 + 1) * n2 - 1))), 1 / (n1 * n2));
+
+}
+
+W1.diag() = vhat1 / pow(tmp, 2);
+W2.diag() = vhat2;
+W3.diag() = vhat3;
+
+for (int i1 = 0; i1 < n1; i1++){
+for (int i2 = 0; i2 < n2; i2++){
+for (int i3 = 0; i3 < n3; i3++){
+  
+W(i1, i2 + i3 * n2) = vhat1(i1) * vhat2(i2) * vhat3(i3);
+
+}
+}
+}
+
+W = W / pow(tmp, 2);
+
+}else if (iwls == "kron2"){
+  
+//kron approx to W ie W approx W3 kron W2 kron W1. How to pick W3,W2,W1? 
 //let W2 = I, W1 = I and W3 such that diag(W3) = mwtrue and offdiag(W3) = 0 then 
 //each of the first n1n2 vals in diag(W) are approx by their average i.e. mwtrue(1), 
 //each of the next n1n2 vals in diag(W) are approx by their average i.e. mwtrue(2), etc
 
-for (int r = 0; r < n3; r++){
+for (int i3 = 0; i3 < n3; i3++){
 
-mwtrue(r) = mean(mean(Wtrue.cols(r * n2, (r + 1) * n2 - 1)));
-Submat.fill(mwtrue(r));
-W.cols(r * n2, (r + 1) * n2 - 1) = Submat;
+mwtrue(i3) = mean(mean(Wtrue.cols(i3 * n2, (i3 + 1) * n2 - 1)));
+Submat.fill(mwtrue(i3));
+W.cols(i3 * n2, (i3 + 1) * n2 - 1) = Submat;
+
+}
+
+W3.diag() = mwtrue;
 
 }
 
 ////working response
-U = dtheta(Eta, family) % (Y - mu(Eta, family));        //theta'(Eta) * (Y - mu(Eta)) / psi
+U = dtheta(Eta, family) % (Y - mu(Eta, family));  //theta'(Eta) * (Y - mu(Eta)) / psi
 Z = pow(W, -1) % U + Eta;
 
 ////precompute
-SqrtW = sqrt(W);
-W3.diag() = mwtrue;
+SqrtW1 = sqrt(W1);
+SqrtW2 = sqrt(W2);
 SqrtW3 = sqrt(W3);
-SqrtW1Phi1 = Phi1;
-SqrtW2Phi2 = Phi2;
+
+SqrtW1Phi1 = SqrtW1 * Phi1;
+SqrtW2Phi2 = SqrtW2 * Phi2;
 SqrtW3Phi3 = SqrtW3 * Phi3;
 
-Phi1tW1Phi1 = Phi1.t() * Phi1;
-Phi2tW2Phi2 = Phi2.t() * Phi2;
+Phi1tW1Phi1 = Phi1.t() * W1 * Phi1;
+Phi2tW2Phi2 = Phi2.t() * W2 * Phi2;
 Phi3tW3Phi3 = Phi3.t() * W3 * Phi3;
 
+SqrtW = sqrt(W);
 SqrtWZ = SqrtW % Z;
 PhitWZ = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), W % Z, n2, n3), n3, p1), p1, p2);
 
@@ -540,26 +662,46 @@ alphamax =  as_scalar(max(kron(eig1, kron(eig2 , eig3))));
 L = alphamax / n;
 delta = 1 / L; //can go up to 2 / L!
 
+/////start MSA loop
+for (int s = 0; s < maxstep; s++){
+
+if(s == 0){
+  
+if(penalty != "lasso"){wGamma =  Gamma / lambda(j);}else{wGamma = Gamma;}
+  
+}else{ 
+
+if(penalty == "scad"){
+
+absBeta =  abs(Beta);
+pospart = ((ascad * Gamma - absBeta) + (ascad * Gamma - absBeta)) / 2;
+dpen = sign(Beta) % (Gamma % (absBeta <= Gamma) + pospart / (ascad - 1) % (absBeta > Gamma));
+wGamma = abs(dpen) % Gamma / lambda(j) % (Beta != 0) + lambda(j) * (Beta == 0);
+
+}
+
+}
+
 /////proximal loop
 for (int k = 0; k < maxiterprox; k++){
 
 if(k == 0){
   
 Betaprevprox = Beta;
-objprox(0) = sqloss(SqrtW1Phi1, SqrtW2Phi2, SqrtW3Phi3, SqrtWZ, Beta, n, p2, p3, n1, n2) + penalty(Gamma, Beta);
+objprox(0) = sqloss(SqrtW1Phi1, SqrtW2Phi2, SqrtW3Phi3, SqrtWZ, Beta, n, p2, p3, n1, n2) + l1penalty(wGamma, Beta); //!!!!!!!!!!!!!!wgamma??????????????
 
 }else{
 
 X = Beta + (k - 2) / (k + 1) * (Beta - Betaprevprox);
 GradsqlossX = (RHmat(Phi3tW3Phi3, RHmat(Phi2tW2Phi2, RHmat(Phi1tW1Phi1, X, p2, p3), p3, p1), p1, p2) - PhitWZ) / n;
-Prop = prox_l1(X - delta * GradsqlossX, delta * Gamma);
+Prop = prox_l1(X - delta * GradsqlossX, delta * wGamma);//!!!!!!!!!!!!!!wgamma??????????????
 sqlossProp = sqloss(SqrtW1Phi1, SqrtW2Phi2, SqrtW3Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 Betaprevprox = Beta;
 Beta = Prop;
 sqlossBeta = sqlossProp;
 
 Iter(j, i) = k;
-objprox(k) = sqlossBeta + penalty(Gamma, Beta);
+objprox(k) = sqlossBeta + l1penalty(wGamma, Beta);//!!!!!!!!!!!!!!wgamma??????????????
 relobjprox = abs(objprox(k) - objprox(k - 1)) / abs(objprox(k - 1)); 
 
 if(k < maxiterprox && relobjprox < reltolprox){
@@ -576,15 +718,29 @@ break;
 
 }
 
-} //end proximal loop
+}//end proximal loop
  
+}//end MSA loop
+
 /////newton line search
+//Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
+//loglikeBeta = loglike(Y, Weights, Eta, n, family);
+//MuEta = mu(Eta, family);
+//GradloglikeBeta = gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, n2, n3, p1, p2, n, family);
+//DeltaBeta = Beta - Betaprevnewt;
+//valnewt = accu(GradloglikeBeta % DeltaBeta);
+//tnewt = 1;
+//BTnewt(j, i) = 0;
+
+/////newton line search (backtracking line search in tseng yun 2009 with gamma = 0)
 Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
 MuEta = mu(Eta, family);
 GradloglikeBeta = gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, n2, n3, p1, p2, n, family);
 DeltaBeta = Beta - Betaprevnewt;
-valnewt = accu(GradloglikeBeta % DeltaBeta);
+valnewt = accu(GradloglikeBeta % DeltaBeta) 
+//+ gamma * DeltaBeta*XtWX*DeltaBeta 
++ l1penalty(Gamma, Beta) - l1penalty(wGamma, Betaprevnewt);//!!!!!!!!!!!!!!wgamma??????????????
 tnewt = 1;
 BTnewt(j, i) = 0;
 
@@ -614,9 +770,9 @@ if(tnewt < 1){//Beta has changed
 Eta = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 MuEta = mu(Eta, family);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
-objnewt(i + 1) = loglikeBeta + penalty(Gamma, Beta);  
+objnewt(i + 1) = loglikeBeta + l1penalty(wGamma, Beta);  //!!!!!!!!!!!!!!wgamma??????????????
 
-}else{objnewt(i + 1) = loglikeBeta + penalty(Gamma, Beta);}
+}else{objnewt(i + 1) = loglikeBeta + l1penalty(wGamma, Beta);}//!!!!!!!!!!!!!!wgamma??????????????
 
 relobjnewt = abs(objnewt(i + 1) - objnewt(i)) / (reltolnewt + abs(objnewt(i)));
 Betaprevnewt = Beta;
@@ -662,6 +818,7 @@ break;
 btiternewt = accu((BTnewt > 0) % BTnewt);
             
 output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
+Rcpp::Named("W") = W,Rcpp::Named("W1") = W1,Rcpp::Named("W2") = W2,Rcpp::Named("W3") = W3,Rcpp::Named("Wtrue") = Wtrue,Rcpp::Named("tmp") = tmp,
                             Rcpp::Named("btiternewt") = btiternewt,
                             Rcpp::Named("btiterprox") = btiterprox,
                             Rcpp::Named("endmodelno") = endmodelno,
@@ -683,7 +840,7 @@ double alphamax, alphanewt,
        Lmax, loglikeBeta, logliketmp, 
        relobjnewt, relobjprox, 
        snewt, sprox,
-       tnewt, tprox, 
+       tnewt,  
        valnewt, valprox, 
        wmax, wsqlossBeta, wsqlossProp, wsqlossX;  
        
@@ -691,15 +848,16 @@ arma::vec df(nlambda),
           eig1, eig2, eig3, 
           objnewt(maxiternewt + 1), objprox(maxiterprox + 1);
 
-arma::mat Beta(p1, p2 * p3),  Betaprevnewt(p1, p2 * p3), Betaprevprox(p1, p2 * p3), Betas(p, nlambda), BTnewt(nlambda, maxiternewt + 1), 
-          DeltaBeta(p1, p2 * p3),  
+arma::mat absBeta(p1, p2 * p3),
+          Beta(p1, p2 * p3),  Betaprevnewt(p1, p2 * p3), Betaprevprox(p1, p2 * p3), Betas(p, nlambda), BTnewt(nlambda, maxiternewt + 1), 
+          DeltaBeta(p1, p2 * p3),  dpen(p1, p2 * p3),
           Eta(n1, n2 * n3), Etatmp(n1, n2 * n3),
           Gamma(p1, p2 * p3), GradloglikeBeta(p1, p2 * p3), GradwsqlossX(p1, p2 * p3), 
           Iter(nlambda, maxiternewt),
           MuEta(n1, n2 * n3), MuEtatmp(n1, n2 * n3),
-          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitWZ, Prop(p1, p2 * p3), 
+          Phi1tPhi1, Phi2tPhi2, Phi3tPhi3, PhitWZ, pospart(p1, p2 * p3), Prop(p1, p2 * p3), 
           SqrtW, SqrtWZ, 
-          W(n1, n2 * n3), 
+          W(n1, n2 * n3), wGamma(p1, p2 * p3),
           X(p1, p2 * p3), 
           Z(n1, n2 * n3);
           
@@ -724,6 +882,7 @@ BTprox.fill(-1); //negative vals?
 
 ////precompute
 if(nu > 0){
+  
 Phi1tPhi1 = Phi1.t() * Phi1;
 Phi2tPhi2 = Phi2.t() * Phi2;
 Phi3tPhi3 = Phi3.t() * Phi3;
@@ -731,6 +890,7 @@ eig1 = arma::eig_sym(Phi1tPhi1);
 eig2 = arma::eig_sym(Phi2tPhi2);
 eig3 = arma::eig_sym(Phi3tPhi3);
 alphamax = as_scalar(max(kron(eig1, kron(eig2, eig3))));
+
 }
 
 ////initialize 
@@ -764,9 +924,9 @@ l = l - difflamb;
 for (int j = 0; j < nlambda; j++){
   
 Gamma = penaltyfactor * lambda(j);
-objnewt(0) = loglikeBeta + penalty(Gamma, Beta);
+objnewt(0) = loglikeBeta + l1penalty(Gamma, Beta);
 
-/////newton loop
+/////start newton loop
 for (int i = 0; i < maxiternewt; i++){
 
 ////iwls weights
@@ -779,24 +939,44 @@ SqrtW = sqrt(W);
 SqrtWZ = SqrtW % Z;
 PhitWZ = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), W % Z, n2, n3), n3, p1), p1, p2);
 
+/////start MSA loop
+for (int s = 0; s < maxstep; s++){
+
+if(s == 0){
+  
+if(penalty != "lasso"){wGamma =  Gamma / lambda(j);}else{wGamma = Gamma;}
+  
+}else{ 
+
+if(penalty == "scad"){
+
+absBeta =  abs(Beta);
+pospart = ((ascad * Gamma - absBeta) + (ascad * Gamma - absBeta)) / 2;
+dpen = sign(Beta) % (Gamma % (absBeta <= Gamma) + pospart / (ascad - 1) % (absBeta > Gamma));
+wGamma = abs(dpen) % Gamma / lambda(j) % (Beta != 0) + lambda(j) * (Beta == 0);
+
+}
+
+}
+
 ////proximal step size
 wmax = max(max(W));
 Lmax = alphamax * wmax / n; //upper bound on Lipschitz constant
 deltamin = 1.99 / Lmax; //minimum stepsize
 
-//initial step size
+////initial step size
 if(nu > 0){delta = 1.9 / (nu * Lmax);}else{delta = 1;}
 
 ascentprox = 0;
             
-/////proximal loop
+/////start proximal loop
 for (int k = 0; k < maxiterprox; k++){
   
 if(k == 0){
 
 Betaprevprox = Beta;
-objprox(0) = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Beta, n, p2, p3, n1, n2) + penalty(Gamma, Beta);
-if(nu > 0 & nu < 1){BTprox(j, i, k ) = 1;} //force initial backtracking for deltamin < delta
+objprox(0) = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Beta, n, p2, p3, n1, n2) + l1penalty(wGamma, Beta);//!!!!!!!!!!!!!!wgamma??????????????
+if(nu > 0 && nu < 1){BTprox(j, i, k) = 1;} //force initial backtracking for deltamin < delta
 
 }else{
 
@@ -809,7 +989,7 @@ if(BTprox(j, i, k - 1) > 0){btprox = 1;}else{btprox = 0;}
 ////check for divergence
 if(ascentprox > ascentproxmax){btprox = 1;}
 
-if((btprox == 1 & deltamin < delta) || nu == 0){//backtrack
+if((btprox == 1 && deltamin < delta) || nu == 0){//backtrack
                         
 wsqlossX = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, X, n, p2, p3, n1, n2);
 
@@ -818,7 +998,7 @@ BTprox(j, i, k) = 0;
 
 while (BTprox(j, i, k) < btproxmax){
 
-Prop = prox_l1(X - delta * GradwsqlossX, delta * Gamma);
+Prop = prox_l1(X - delta * GradwsqlossX, delta * wGamma); //!!!!!!!!!!!!!!wgamma??????????????
 wsqlossProp = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 valprox = as_scalar(wsqlossX + accu(GradwsqlossX % (Prop - X)) + 1 / (2 * delta) * sum_square(Prop - X));
 
@@ -842,7 +1022,7 @@ if(BTprox(j, i, k) == btproxmax){STOPprox = 1;}
 
 }else{//no backtracking
 
-Prop = prox_l1(X - delta * GradwsqlossX, delta * Gamma);
+Prop = prox_l1(X - delta * GradwsqlossX, delta * wGamma);//!!!!!!!!!!!!!!wgamma??????????????
 wsqlossProp = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 
 }
@@ -850,7 +1030,7 @@ wsqlossProp = wsqloss(SqrtW, Phi1, Phi2, Phi3, SqrtWZ, Prop, n, p2, p3, n1, n2);
 Betaprevprox = Beta;
 Beta = Prop;
 wsqlossBeta = wsqlossProp;
-objprox(k) = wsqlossBeta + penalty(Gamma, Beta);
+objprox(k) = wsqlossBeta + l1penalty(wGamma, Beta);//!!!!!!!!!!!!!!wgamma??????????????
 
 ////check if objective has increased
 if(objprox(k) > objprox(k - 1)){ascentprox = ascentprox + 1;}else{ascentprox = 0;}
@@ -886,14 +1066,31 @@ break;
 }
 
 } //end proximal loop
-            
-/////newton line search
+
+
+//convergence check?? or just run maxstep times.......?????????????
+
+} //end MSA loop
+
+/////newton line search (backtracking line search, boyd and vandenberghe 2009 alg 9.2)
+//Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
+//loglikeBeta = loglike(Y, Weights, Eta, n, family);
+//MuEta = mu(Eta, family);
+//GradloglikeBeta = gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, n2, n3, p1, p2, n, family);
+//DeltaBeta = Beta - Betaprevnewt;
+//valnewt = accu(GradloglikeBeta % DeltaBeta);
+//tnewt = 1;
+//BTnewt(j, i) = 0;
+
+/////newton line search (backtracking line search in tseng yun 2009 with gamma=0)
 Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
 MuEta = mu(Eta, family);
 GradloglikeBeta = gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, n2, n3, p1, p2, n, family);
 DeltaBeta = Beta - Betaprevnewt;
-valnewt = accu(GradloglikeBeta % DeltaBeta);
+valnewt = accu(GradloglikeBeta % DeltaBeta) 
+//+ 0 * .... 
++ l1penalty(Gamma, Beta) - l1penalty(wGamma, Betaprevnewt);//!!!!!!!!!!!!!!wgamma??????????????
 tnewt = 1;
 BTnewt(j, i) = 0;
 
@@ -923,14 +1120,14 @@ if(tnewt < 1){//Beta has changed
 Eta = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 MuEta = mu(Eta, family);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
-objnewt(i + 1) = loglikeBeta + penalty(Gamma, Beta);  
+objnewt(i + 1) = loglikeBeta + l1penalty(wGamma, Beta);  //!!!!!!!!!!!!!!wgamma??????????????
 
-}else{objnewt(i + 1) = loglikeBeta + penalty(Gamma, Beta);}
+}else{objnewt(i + 1) = loglikeBeta + l1penalty(wGamma, Beta);}//!!!!!!!!!!!!!!wgamma??????????????
 
 relobjnewt = abs(objnewt(i + 1) - objnewt(i)) / (reltolnewt + abs(objnewt(i)));
 Betaprevnewt = Beta;
 
-/////newton convergence check
+/////newton convergence check 
 if(relobjnewt < reltolnewt){//go to next lambda
 
 df(j) = p - accu((Beta == 0));
@@ -999,16 +1196,15 @@ Rcpp::List getobj(arma::mat Y, arma::mat Weights,
                   Rcpp::NumericVector beta,
                   arma::vec lambda,
                   arma::mat penaltyfactor,
-                  std::string family){
+                  std::string family,
+                  std::string penalty){
 
 Rcpp::NumericVector vecbeta(beta);
 Rcpp::IntegerVector BetaDim = vecbeta.attr("dim");
 arma::cube Beta(vecbeta.begin(), BetaDim[0], BetaDim[1], BetaDim[2], false);
 
-int p1 = Phi1.n_cols;
 int p2 = Phi2.n_cols;
 int p3 = Phi3.n_cols;
-int p = p1 * p2 * p3;
 int n1 = Phi1.n_rows;
 int n2 = Phi2.n_rows;
 int n3 = Phi3.n_rows;
@@ -1020,8 +1216,21 @@ arma::mat Eta, MuEta;
 arma::vec Obj(nlambda), Loss(nlambda), Pen(nlambda);
 
 for (int j = 0; j < nlambda; j++){
+
+if(penalty == "lasso"){
   
-Pen(j) = penalty(penaltyfactor * lambda(j), Beta.slice(j));
+Pen(j) = l1penalty(penaltyfactor * lambda(j), Beta.slice(j));
+
+}
+
+if(penalty == "scad"){
+  
+double ascad = 3.7;
+  
+Pen(j) = scadpenalty(penaltyfactor * lambda(j), ascad, Beta.slice(j));
+  
+}
+
 Eta = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta.slice(j), p2, p3), p3, n1), n1, n2);
 MuEta = mu(Eta, family);
 Loss(j) = loglike(Y, Weights, Eta, n, family);

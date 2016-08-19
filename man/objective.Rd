@@ -7,37 +7,41 @@
 \usage{
 objective(Y,
           Weights,
-          X1, X2, X3,
+          X,
           Beta,
           lambda,
           penalty.factor,
-          family)
+          family,
+          penalty)
 }
 \arguments{
-\item{Y}{The response values, a 3d array of size \eqn{n_1 \times n_2 \times n_3}.}
+\item{Y}{The response values, an array of size \eqn{n_1 \times \cdots \times n_d}.}
 
-\item{Weights}{Observation weights, a 3d array of size \eqn{n_1 \times n_2 \times n_3}.}
+\item{Weights}{Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}.}
 
-\item{X1,X2,X3}{The three tensor components of the tensor design matrix, each of size
-\eqn{n_i \times p_i}, \eqn{i = 1, 2, 3}.}
+\item{X}{A list containing the tensor components of the tensor design matrix, each of size
+\eqn{n_i \times p_i}.}
 
-\item{Beta}{A coefficient matrix of size \eqn{p_1p_2p_3 \times }\code{nlambda}.}
+\item{Beta}{A coefficient matrix of size \eqn{p_1\cdots p_d \times }\code{nlambda}.}
 
 \item{lambda}{The sequence of penalty parameters for the regularization path.}
 
-\item{penalty.factor}{A 3d array of size  \eqn{p_1 \times p_2 \times p_3}. Is multiplied with each
+\item{penalty.factor}{An array of size  \eqn{p_1 \times \cdots \times p_d}. Is multiplied with each
 element in  \code{lambda} to allow differential shrinkage on the coefficients.}
 
-\item{family}{A string indicating the model family (essentially the response distribution).}
+\item{family}{A string specifying the model family (essentially the response distribution).}
+
+\item{penalty}{A string specifying the penalty.}
 }
 \value{
 A vector of length \code{length(lambda)} containing the objective values for each \code{lambda} value.
 }
 \description{
-Computes the objective values of the lasso penalized log-likelihood problem
+Computes the objective values of the penalized log-likelihood problem
              for the models implemented in the package glamlasso.
 }
 \examples{
+\dontrun{
 n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 X1 <- matrix(rnorm(n1 * p1), n1, p1)
 X2 <- matrix(rnorm(n2 * p2), n2, p2)
@@ -45,8 +49,9 @@ X3 <- matrix(rnorm(n3 * p3), n3, p3)
 Beta <- array(rnorm(p1 * p2 * p3) * rbinom(p1 * p2 * p3, 1, 0.1), c(p1 , p2, p3))
 mu <- RH(X3, RH(X2, RH(X1, Beta)))
 Y <- array(rnorm(n1 * n2 * n3, mu), dim = c(n1, n2, n3))
-fit <- glamlasso(X1, X2, X3, Y, family = "gaussian", iwls = "exact")
-objfit <- objective(Y, NULL, X1, X2, X3, fit$coef, fit$lambda, NULL, fit$family)
+fit <- glamlasso(list(X1, X2, X3), Y, family = "gaussian", penalty = "lasso", iwls = "exact")
+objfit <- objective(Y, NULL, list(X1, X2, X3), fit$coef, fit$lambda, NULL, fit$family)
 plot(objfit, type = "l")
+}
 }
 

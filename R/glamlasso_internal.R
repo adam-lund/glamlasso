@@ -3,7 +3,7 @@
 #     Internal R functions utilized by the glamlasso package.
 #
 #     Intended for use with R.
-#     Copyright (C) 2015 Adam Lund
+#     Copyright (C) 2016 Adam Lund
 # 
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #
 
 #' @name glamlasso_internal
-#' @aliases mu pgal getobj
+#' @aliases mu gdpg getobj
 #' @title Internal glamlasso Functions
 #' @description  Internal glamlasso functions.
 #' @details These functions are not intended for use by users.

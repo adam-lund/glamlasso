@@ -25,34 +25,34 @@
 #' 
 #' @title Compute objective values 
 #' 
-#' @description Computes the objective values of the lasso penalized log-likelihood problem
+#' @description Computes the objective values of the penalized log-likelihood problem
 #'              for the models implemented in the package glamlasso.
 #'              
 #' @usage objective(Y, 
 #'           Weights, 
-#'           X1, X2, X3, 
+#'           X, 
 #'           Beta, 
 #'           lambda,
 #'           penalty.factor, 
-#'           family)
+#'           family,
+#'           penalty)
 #' 
-#' @param Y The response values, a 3d array of size \eqn{n_1 \times n_2 \times n_3}. 
-#' @param Weights Observation weights, a 3d array of size \eqn{n_1 \times n_2 \times n_3}.
-#' @param X1,X2,X3 The three tensor components of the tensor design matrix, each of size
-#'  \eqn{n_i \times p_i}, \eqn{i = 1, 2, 3}.
-#' @param Beta A coefficient matrix of size \eqn{p_1p_2p_3 \times }\code{nlambda}.
+#' @param Y The response values, an array of size \eqn{n_1 \times \cdots \times n_d}. 
+#' @param Weights Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}.
+#' @param X A list containing the tensor components of the tensor design matrix, each of size
+#'  \eqn{n_i \times p_i}.
+#' @param Beta A coefficient matrix of size \eqn{p_1\cdots p_d \times }\code{nlambda}.
 #' @param lambda The sequence of penalty parameters for the regularization path.
-#' @param penalty.factor A 3d array of size  \eqn{p_1 \times p_2 \times p_3}. Is multiplied with each 
+#' @param penalty.factor An array of size  \eqn{p_1 \times \cdots \times p_d}. Is multiplied with each 
 #' element in  \code{lambda} to allow differential shrinkage on the coefficients. 
-#Can be 0 for some variables, which implies no shrinkage, and that variable is always included in the model. 
-#Default is 1 for all variables (and implicitly infinity for variables listed in exclude). Note: the penalty 
-#factors are internally rescaled to sum to nvars, and the lambda sequence will reflect this change.
-#' @param family A string indicating the model family (essentially the response distribution).
+#' @param family A string specifying the model family (essentially the response distribution).
+#' @param penalty A string specifying the penalty.
 #' 
 #' @return
 #' A vector of length \code{length(lambda)} containing the objective values for each \code{lambda} value. 
 #' 
 #' @examples
+#' \dontrun{
 #' n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 #' X1 <- matrix(rnorm(n1 * p1), n1, p1) 
 #' X2 <- matrix(rnorm(n2 * p2), n2, p2) 
@@ -60,22 +60,37 @@
 #' Beta <- array(rnorm(p1 * p2 * p3) * rbinom(p1 * p2 * p3, 1, 0.1), c(p1 , p2, p3))
 #' mu <- RH(X3, RH(X2, RH(X1, Beta)))
 #' Y <- array(rnorm(n1 * n2 * n3, mu), dim = c(n1, n2, n3))
-#' fit <- glamlasso(X1, X2, X3, Y, family = "gaussian", iwls = "exact")
-#' objfit <- objective(Y, NULL, X1, X2, X3, fit$coef, fit$lambda, NULL, fit$family)
+#' fit <- glamlasso(list(X1, X2, X3), Y, family = "gaussian", penalty = "lasso", iwls = "exact")
+#' objfit <- objective(Y, NULL, list(X1, X2, X3), fit$coef, fit$lambda, NULL, fit$family)
 #' plot(objfit, type = "l")
+#' }
 
-objective <-function(Y, Weights, X1, X2, X3, Beta, lambda, penalty.factor, family) {
+objective <-function(Y, Weights, X, Beta, lambda, penalty.factor, family, penalty) {
   
 ##get dimensions of problem
-dimX <- rbind(dim(X1), dim(X2), dim(X3))
-n <- prod(dimX[ , 1])
-p <- prod(dimX[ , 2])
-n1 <- dimX[1, 1]
-n2 <- dimX[2, 1]
-n3 <- dimX[3, 1]
-p1 <- dimX[1, 2]
-p2 <- dimX[2, 2]
-p3 <- dimX[3, 2]
+  
+  dimglam <- length(X)
+  
+  if (dimglam < 2 || dimglam > 3){
+    
+    stop(paste("the dimension of the GLAM must be 2 or 3!"))
+    
+  }else if (dimglam == 2){X[[3]] <- matrix(1, 1, 1)} 
+  
+  X1 <- X[[1]]
+  X2 <- X[[2]]
+  X3 <- X[[3]]
+  
+  dimX <- rbind(dim(X1), dim(X2), dim(X3))
+  
+  n1 <- dimX[1, 1]
+  n2 <- dimX[2, 1]
+  n3 <- dimX[3, 1]
+  p1 <- dimX[1, 2]
+  p2 <- dimX[2, 2]
+  p3 <- dimX[3, 2]
+  n <- prod(dimX[,1])
+  p <- prod(dimX[,2])
 
 ##check if lambda is specified
 if(is.null(lambda)){stop(paste("no lambda sequence is specified"))}
@@ -110,7 +125,7 @@ Y <- matrix(Y, n1, n2 * n3)
 BetaArr <- array(Beta, c(p1, p2 * p3, length(lambda)))
 
 ##get objective values
-out <- getobj(Y, Weights,  X1, X2, X3, BetaArr, lambda, penalty.factor, family)$Obj
+out <- getobj(Y, Weights,  X1, X2, X3, BetaArr, lambda, penalty.factor, family, penalty)$Obj
 
 return(out)
 

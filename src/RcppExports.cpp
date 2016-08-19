@@ -6,9 +6,9 @@
 
 using namespace Rcpp;
 
-// pgal
-Rcpp::List pgal(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, arma::mat Y, arma::mat Weights, std::string family, std::string iwls, double nu, arma::vec lambda, int makelamb, int nlambda, double lambdaminratio, arma::mat penaltyfactor, double reltolprox, double reltolnewt, int maxiter, int maxiterprox, int maxiternewt, int btproxmax, int weightedgaussian);
-RcppExport SEXP glamlasso_pgal(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP YSEXP, SEXP WeightsSEXP, SEXP familySEXP, SEXP iwlsSEXP, SEXP nuSEXP, SEXP lambdaSEXP, SEXP makelambSEXP, SEXP nlambdaSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolproxSEXP, SEXP reltolnewtSEXP, SEXP maxiterSEXP, SEXP maxiterproxSEXP, SEXP maxiternewtSEXP, SEXP btproxmaxSEXP, SEXP weightedgaussianSEXP) {
+// gdpg
+Rcpp::List gdpg(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, arma::mat Y, arma::mat Weights, std::string family, std::string penalty, std::string iwls, double nu, arma::vec lambda, int makelamb, int nlambda, double lambdaminratio, arma::mat penaltyfactor, double reltolprox, double reltolnewt, int maxiter, int maxstep, int maxiterprox, int maxiternewt, int btproxmax, int weightedgaussian);
+RcppExport SEXP glamlasso_gdpg(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP YSEXP, SEXP WeightsSEXP, SEXP familySEXP, SEXP penaltySEXP, SEXP iwlsSEXP, SEXP nuSEXP, SEXP lambdaSEXP, SEXP makelambSEXP, SEXP nlambdaSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolproxSEXP, SEXP reltolnewtSEXP, SEXP maxiterSEXP, SEXP maxstepSEXP, SEXP maxiterproxSEXP, SEXP maxiternewtSEXP, SEXP btproxmaxSEXP, SEXP weightedgaussianSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -18,6 +18,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type Y(YSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Weights(WeightsSEXP);
     Rcpp::traits::input_parameter< std::string >::type family(familySEXP);
+    Rcpp::traits::input_parameter< std::string >::type penalty(penaltySEXP);
     Rcpp::traits::input_parameter< std::string >::type iwls(iwlsSEXP);
     Rcpp::traits::input_parameter< double >::type nu(nuSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type lambda(lambdaSEXP);
@@ -28,17 +29,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type reltolprox(reltolproxSEXP);
     Rcpp::traits::input_parameter< double >::type reltolnewt(reltolnewtSEXP);
     Rcpp::traits::input_parameter< int >::type maxiter(maxiterSEXP);
+    Rcpp::traits::input_parameter< int >::type maxstep(maxstepSEXP);
     Rcpp::traits::input_parameter< int >::type maxiterprox(maxiterproxSEXP);
     Rcpp::traits::input_parameter< int >::type maxiternewt(maxiternewtSEXP);
     Rcpp::traits::input_parameter< int >::type btproxmax(btproxmaxSEXP);
     Rcpp::traits::input_parameter< int >::type weightedgaussian(weightedgaussianSEXP);
-    __result = Rcpp::wrap(pgal(Phi1, Phi2, Phi3, Y, Weights, family, iwls, nu, lambda, makelamb, nlambda, lambdaminratio, penaltyfactor, reltolprox, reltolnewt, maxiter, maxiterprox, maxiternewt, btproxmax, weightedgaussian));
+    __result = Rcpp::wrap(gdpg(Phi1, Phi2, Phi3, Y, Weights, family, penalty, iwls, nu, lambda, makelamb, nlambda, lambdaminratio, penaltyfactor, reltolprox, reltolnewt, maxiter, maxstep, maxiterprox, maxiternewt, btproxmax, weightedgaussian));
     return __result;
 END_RCPP
 }
 // getobj
-Rcpp::List getobj(arma::mat Y, arma::mat Weights, arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, Rcpp::NumericVector beta, arma::vec lambda, arma::mat penaltyfactor, std::string family);
-RcppExport SEXP glamlasso_getobj(SEXP YSEXP, SEXP WeightsSEXP, SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP betaSEXP, SEXP lambdaSEXP, SEXP penaltyfactorSEXP, SEXP familySEXP) {
+Rcpp::List getobj(arma::mat Y, arma::mat Weights, arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, Rcpp::NumericVector beta, arma::vec lambda, arma::mat penaltyfactor, std::string family, std::string penalty);
+RcppExport SEXP glamlasso_getobj(SEXP YSEXP, SEXP WeightsSEXP, SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP betaSEXP, SEXP lambdaSEXP, SEXP penaltyfactorSEXP, SEXP familySEXP, SEXP penaltySEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -51,7 +53,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type penaltyfactor(penaltyfactorSEXP);
     Rcpp::traits::input_parameter< std::string >::type family(familySEXP);
-    __result = Rcpp::wrap(getobj(Y, Weights, Phi1, Phi2, Phi3, beta, lambda, penaltyfactor, family));
+    Rcpp::traits::input_parameter< std::string >::type penalty(penaltySEXP);
+    __result = Rcpp::wrap(getobj(Y, Weights, Phi1, Phi2, Phi3, beta, lambda, penaltyfactor, family, penalty));
     return __result;
 END_RCPP
 }
