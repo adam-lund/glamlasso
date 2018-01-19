@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // gdpg
-Rcpp::List gdpg(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, arma::mat Y, arma::mat Weights, std::string family, std::string penalty, std::string iwls, double nu, arma::vec lambda, int makelamb, int nlambda, double lambdaminratio, arma::mat penaltyfactor, double reltolprox, double reltolnewt, int maxiter, int maxstep, int maxiterprox, int maxiternewt, int btproxmax, int weightedgaussian);
-RcppExport SEXP glamlasso_gdpg(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP YSEXP, SEXP WeightsSEXP, SEXP familySEXP, SEXP penaltySEXP, SEXP iwlsSEXP, SEXP nuSEXP, SEXP lambdaSEXP, SEXP makelambSEXP, SEXP nlambdaSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolproxSEXP, SEXP reltolnewtSEXP, SEXP maxiterSEXP, SEXP maxstepSEXP, SEXP maxiterproxSEXP, SEXP maxiternewtSEXP, SEXP btproxmaxSEXP, SEXP weightedgaussianSEXP) {
+Rcpp::List gdpg(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, arma::mat Y, arma::mat Weights, std::string family, std::string penalty, std::string iwls, double nu, arma::vec lambda, int makelamb, int nlambda, double lambdaminratio, arma::mat penaltyfactor, double reltolprox, double reltolnewt, int maxiter, int steps, int maxiterprox, int maxiternewt, int btproxmax, int weightedgaussian);
+RcppExport SEXP glamlasso_gdpg(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP YSEXP, SEXP WeightsSEXP, SEXP familySEXP, SEXP penaltySEXP, SEXP iwlsSEXP, SEXP nuSEXP, SEXP lambdaSEXP, SEXP makelambSEXP, SEXP nlambdaSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP reltolproxSEXP, SEXP reltolnewtSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP maxiterproxSEXP, SEXP maxiternewtSEXP, SEXP btproxmaxSEXP, SEXP weightedgaussianSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -29,12 +29,12 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type reltolprox(reltolproxSEXP);
     Rcpp::traits::input_parameter< double >::type reltolnewt(reltolnewtSEXP);
     Rcpp::traits::input_parameter< int >::type maxiter(maxiterSEXP);
-    Rcpp::traits::input_parameter< int >::type maxstep(maxstepSEXP);
+    Rcpp::traits::input_parameter< int >::type steps(stepsSEXP);
     Rcpp::traits::input_parameter< int >::type maxiterprox(maxiterproxSEXP);
     Rcpp::traits::input_parameter< int >::type maxiternewt(maxiternewtSEXP);
     Rcpp::traits::input_parameter< int >::type btproxmax(btproxmaxSEXP);
     Rcpp::traits::input_parameter< int >::type weightedgaussian(weightedgaussianSEXP);
-    __result = Rcpp::wrap(gdpg(Phi1, Phi2, Phi3, Y, Weights, family, penalty, iwls, nu, lambda, makelamb, nlambda, lambdaminratio, penaltyfactor, reltolprox, reltolnewt, maxiter, maxstep, maxiterprox, maxiternewt, btproxmax, weightedgaussian));
+    __result = Rcpp::wrap(gdpg(Phi1, Phi2, Phi3, Y, Weights, family, penalty, iwls, nu, lambda, makelamb, nlambda, lambdaminratio, penaltyfactor, reltolprox, reltolnewt, maxiter, steps, maxiterprox, maxiternewt, btproxmax, weightedgaussian));
     return __result;
 END_RCPP
 }

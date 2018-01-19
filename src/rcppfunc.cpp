@@ -49,7 +49,7 @@ Rcpp::List gdpg(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3,
                 double reltolprox,
                 double reltolnewt,
                 int maxiter,
-                int maxstep,
+                int steps,
                 int maxiterprox,
                 int maxiternewt,
                 int btproxmax,
@@ -72,6 +72,29 @@ int btenterprox = 0, btiternewt = 0, btiterprox = 0,
     STOPmaxiter = 0,  STOPnewt = 0, STOPprox = 0;
     
 double ascad = 3.7;
+
+////make lambda sequence
+if(makelamb == 1){
+  
+arma::mat Ze = zeros<mat>(n1, n2 * n3);
+arma::mat absgradzeroall = abs(gradloglike(Y, Weights, Phi1, Phi2, Phi3, mu(Ze, family), Ze, n2, n3, p1, p2, n, family));
+arma::mat absgradzeropencoef = absgradzeroall % (penaltyfactor > 0);
+arma::mat  penaltyfactorpencoef = (penaltyfactor == 0) * 1 + penaltyfactor;
+double lambdamax = as_scalar(max(max(absgradzeropencoef / penaltyfactorpencoef)));
+double m = log(lambdaminratio);
+double M = 0;
+double difflamb = abs(M - m) / (nlambda - 1);
+double l = 0;
+
+for(int i = 0; i < nlambda ; i++){
+
+lambda(i) = lambdamax * exp(l);
+l = l - difflamb;
+
+}
+
+}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+
 
 if(family == "gaussian"){//gaussian#################################################
 
@@ -117,31 +140,31 @@ delta = 1 / L;
 Beta.fill(0);
 sqlossBeta = sqloss(Phi1, Phi2, Phi3, Y, Beta, n, p2, p3, n1, n2);
 
-////make lambda sequence        
-if(makelamb == 1){
-  
-double lambdamax = as_scalar(max(max(abs(PhitY) / penaltyfactor))) / n;
-double m = log(lambdaminratio);
-double M = 0;
-double difflamb = abs(M - m) / (nlambda - 1);
-double l = 0;
+// ////make lambda sequence
+// if(makelamb == 1){
+//
+// double lambdamax = as_scalar(max(max(abs(PhitY) / penaltyfactor))) / n;
+// double m = log(lambdaminratio);
+// double M = 0;
+// double difflamb = abs(M - m) / (nlambda - 1);
+// double l = 0;
+//
+// for(int i = 0; i < nlambda ; i++){
+//
+// lambda(i) = lambdamax * exp(l);
+// l = l - difflamb;
+//
+// }
+//
+// }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
 
-for(int i = 0; i < nlambda ; i++){
-  
-lambda(i) = lambdamax * exp(l);
-l = l - difflamb;
-
-}
-
-}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
-        
 ////start lambda loop
 for (int j = 0; j < nlambda; j++){
   
 Gamma = penaltyfactor * lambda(j);
 
 /////start MSA loop
-for (int s = 0; s < maxstep; s++){
+for (int s = 0; s < steps; s++){
 
 if(s == 0){
   
@@ -201,8 +224,6 @@ break;
 
 }//end proximal loop
 
-
-
 df(j) = p - accu((Beta == 0));
 Betas.col(j) = vectorise(Beta);
 
@@ -230,7 +251,8 @@ output = Rcpp::List::create(Rcpp::Named("Beta") = Betas,
                             Rcpp::Named("STOPnewt") = STOPnewt,
                             Rcpp::Named("STOPprox") = STOPprox);
 
-}else if (weightedgaussian == 1){// if prior weights are used, solve (one) weighted ls problem
+}else if (weightedgaussian == 1){//weigthed gaussian#################################
+    // if prior weights are used, solve (one) weighted ls problem
 
 ////declare variables
 int ascentprox, ascentproxmax,
@@ -305,24 +327,24 @@ Beta = Betaprevprox;
 Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 MuEta = mu(Eta, family);
 
-////make lambda sequence
-if(makelamb == 1){
-  
-double lambdamax = as_scalar(max(max(abs(gradloglike(Y, W, Phi1, Phi2, Phi3, MuEta, Eta, 
-                                                     n2, n3, p1, p2, n, family)) / penaltyfactor)));
-double m = log(lambdaminratio);
-double M = 0;
-double difflamb = abs(M - m) / (nlambda - 1);
-double l = 0;
-
-for(int i = 0; i < nlambda ; i++){
-  
-lambda(i) = lambdamax * exp(l);
-l = l - difflamb;
-
-}
-
-}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+// ////make lambda sequence
+// if(makelamb == 1){
+//   
+// double lambdamax = as_scalar(max(max(abs(gradloglike(Y, W, Phi1, Phi2, Phi3, MuEta, Eta, 
+//                                                      n2, n3, p1, p2, n, family)) / penaltyfactor)));
+// double m = log(lambdaminratio);
+// double M = 0;
+// double difflamb = abs(M - m) / (nlambda - 1);
+// double l = 0;
+// 
+// for(int i = 0; i < nlambda ; i++){
+//   
+// lambda(i) = lambdamax * exp(l);
+// l = l - difflamb;
+// 
+// }
+// 
+// }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
     
 //start lambda loop
 for (int j = 0; j < nlambda; j++){
@@ -332,7 +354,7 @@ Gamma = penaltyfactor * lambda(j);
 ascentprox = 0;
 
 //start MSA loop
-for (int s = 0; s < maxstep; s++){
+for (int s = 0; s < steps; s++){
 
 if(s == 0){
   
@@ -539,24 +561,24 @@ Eta = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
 MuEta = mu(Eta, family);
 
-////lambda sequence
-if(makelamb == 1){    
-  
-double lambdamax = as_scalar(max(max(abs(gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, 
-                                                     n2, n3, p1, p2, n, family)) / penaltyfactor)));
-double m = log(lambdaminratio);
-double M = 0;
-double difflamb = abs(M - m) / (nlambda - 1);
-double l = 0;
-
-for(int i = 0; i < nlambda ; i++){
-  
-lambda(i) = lambdamax * exp(l);
-l = l - difflamb;
-
-}
-
-}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+// ////make lambda sequence
+// if(makelamb == 1){    
+//   
+// double lambdamax = as_scalar(max(max(abs(gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, 
+//                                                      n2, n3, p1, p2, n, family)) / penaltyfactor)));
+// double m = log(lambdaminratio);
+// double M = 0;
+// double difflamb = abs(M - m) / (nlambda - 1);
+// double l = 0;
+// 
+// for(int i = 0; i < nlambda ; i++){
+//   
+// lambda(i) = lambdamax * exp(l);
+// l = l - difflamb;
+// 
+// }
+// 
+// }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
                         
 /////lambda loop
 for (int j = 0; j < nlambda; j++){
@@ -663,7 +685,7 @@ L = alphamax / n;
 delta = 1 / L; //can go up to 2 / L!
 
 /////start MSA loop
-for (int s = 0; s < maxstep; s++){
+for (int s = 0; s < steps; s++){
 
 if(s == 0){
   
@@ -901,24 +923,24 @@ Eta =  RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, Beta, p2, p3), p3, n1), n1, n2);
 loglikeBeta = loglike(Y, Weights, Eta, n, family);
 MuEta = mu(Eta, family);
 
-////make lambda sequence
-if(makelamb == 1){
-  
-double lambdamax = as_scalar(max(max(abs(gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta, 
-                                                     n2, n3, p1, p2, n, family)) / penaltyfactor)));
-double m = log(lambdaminratio);
-double M = 0;
-double difflamb = abs(M - m) / (nlambda - 1);
-double l = 0;
-
-for(int i = 0; i < nlambda ; i++){
-  
-lambda(i) = lambdamax * exp(l);
-l = l - difflamb;
-
-}
-
-}else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
+// ////make lambda sequence
+// if(makelamb == 1){
+// 
+// double lambdamax = as_scalar(max(max(abs(gradloglike(Y, Weights, Phi1, Phi2, Phi3, MuEta, Eta,
+//                                                      n2, n3, p1, p2, n, family)) / penaltyfactor)));
+// double m = log(lambdaminratio);
+// double M = 0;
+// double difflamb = abs(M - m) / (nlambda - 1);
+// double l = 0;
+// 
+// for(int i = 0; i < nlambda ; i++){
+// 
+// lambda(i) = lambdamax * exp(l);
+// l = l - difflamb;
+// 
+// }
+// 
+// }else{std::sort(lambda.begin(), lambda.end(), std::greater<int>());}
         
 ////lambda loop
 for (int j = 0; j < nlambda; j++){
@@ -940,7 +962,7 @@ SqrtWZ = SqrtW % Z;
 PhitWZ = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), W % Z, n2, n3), n3, p1), p1, p2);
 
 /////start MSA loop
-for (int s = 0; s < maxstep; s++){
+for (int s = 0; s < steps; s++){
 
 if(s == 0){
   
@@ -1068,7 +1090,7 @@ break;
 } //end proximal loop
 
 
-//convergence check?? or just run maxstep times.......?????????????
+//convergence check?? or just run steps times.......?????????????
 
 } //end MSA loop
 

@@ -60,7 +60,7 @@
 #' X1 <- matrix(rnorm(p1), nrow = 1)
 #' X2 <- matrix(rnorm(p2), nrow = 1)
 #' X3 <- matrix(rnorm(p3), nrow = 1)
-#' predict(fit, list(X1, X2, X3))[[100]]
+#' predict(fit, X = list(X1, X2, X3))[[100]]
 #' }
 #' 
 #' @author Adam Lund
@@ -144,7 +144,7 @@ res[[i]] <- mu(RH(X3, RH(X2, RH(X1, beta))), family)
     
 }
    
-}else{stop(paste("dimensiond of new data inconsistent with existing data"))}
+}else{stop(paste("dimension of new data inconsistent with existing data"))}
 
 class(res) <- "glamlasso"
 

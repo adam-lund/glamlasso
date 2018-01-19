@@ -1,13 +1,13 @@
 Package: glamlasso
 Type: Package
 Title: Penalization in Large Scale Generalized Linear Array Models
-Version: 2.0.1
+Version: 2.0.2
 Date: 2016-08-01
 Author: Adam Lund
 Maintainer: Adam Lund <adam.lund@math.ku.dk>
 Description: Efficient design matrix free procedure for penalized estimation
     in large scale 2 and 3-dimensional generalized linear array models. Currently
-    either Lasso or SCAD penalized estimation is possible for the followings models:
+    Lasso or SCAD penalized estimation is possible for the followings models:
     The Gaussian model with identity link, the Binomial model with logit link, the
     Poisson model with log link and the Gamma model with log link.
 License: GPL-3

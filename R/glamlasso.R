@@ -108,7 +108,7 @@
 #' convex, as with the SCAD penalty, we use the multiple step adaptive lasso procedure to loop over the inner proximal algorithm, see \cite{Lund et al., 2015} for more details.
 #'   
 #' @return An object with S3 Class "glamlasso". 
-#' \item{family}{A string indicating the model family.}  
+#' \item{spec}{A string indicating the GLAM dimension (2 or 3), the model family and the penalty.}  
 #' \item{coef}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of 
 #' the model coefficients (\code{beta}) for each \code{lambda}-value.}
 #' \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
@@ -208,12 +208,8 @@ stop(paste("the dimension of the GLAM must be 2 or 3!"))
 X1 <- X[[1]]
 X2 <- X[[2]]
 X3 <- X[[3]]
-# print(dim(X1))
-# print(dim(X2))
-# print(dim(X3))
 
 dimX <- rbind(dim(X1), dim(X2), dim(X3))
-#print(dimX)
 
 n1 <- dimX[1, 1]
 n2 <- dimX[2, 1]
@@ -289,7 +285,7 @@ paste("number of elements in penalty.factor (", length(penalty.factor),") is not
   
 }else {
   
-if(min(penalty.factor) <= 0){stop(paste("penalty.factor must be strictly positive"))}    
+if(min(penalty.factor) < 0){stop(paste("penalty.factor must be positive"))}    
   
 penalty.factor <- matrix(penalty.factor, p1, p2 * p3)
   
@@ -371,19 +367,12 @@ out <- list()
 
 class(out) <- "glamlasso"
 
-out$spec <- paste("", dimglam,"-dimensional GLAM with ", family," family and ", penalty," penalty") 
+out$spec <- paste("", dimglam,"-dimensional ", penalty," penalized ", family," GLAM") 
 out$coef <- res$Beta[ , 1:endmodelno]
 out$lambda <- res$lambda[1:endmodelno] 
 out$df <- res$df[1:endmodelno]
-out$dimcoef <- c(p1, p2, p3)[1:dimglam]#!!!!!!!!!!!!!!!!
-out$dimobs <- c(n1, n2, n3)[1:dimglam]#!!!!!!!!!!!!!!!!!!!!!
-
-# out$Wtrue <- res$Wtrue 
-# out$W <- res$W
-# out$W1 <- res$W1
-# out$W2 <- res$W2
-# out$W3 <- res$W3
-# out$tmp <- res$tmp
+out$dimcoef <- c(p1, p2, p3)[1:dimglam]
+out$dimobs <- c(n1, n2, n3)[1:dimglam]
 
 Iter <- list()
 Iter$bt_enter_inner <- res$btenterprox

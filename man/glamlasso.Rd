@@ -78,7 +78,7 @@ used if \code{iwls = "exact"}.}
 }
 \value{
 An object with S3 Class "glamlasso". 
-\item{family}{A string indicating the model family.}  
+\item{spec}{A string indicating the GLAM dimension (2 or 3), the model family and the penalty.}  
 \item{coef}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of 
 the model coefficients (\code{beta}) for each \code{lambda}-value.}
 \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
