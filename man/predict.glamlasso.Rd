@@ -49,11 +49,10 @@ predict(fit, x = x)[[100]]
 X1 <- matrix(rnorm(p1), nrow = 1)
 X2 <- matrix(rnorm(p2), nrow = 1)
 X3 <- matrix(rnorm(p3), nrow = 1)
-predict(fit, list(X1, X2, X3))[[100]]
+predict(fit, X = list(X1, X2, X3))[[100]]
 }
 
 }
 \author{
 Adam Lund
 }
-

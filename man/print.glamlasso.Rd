@@ -32,4 +32,3 @@ fit
 \author{
 Adam Lund
 }
-

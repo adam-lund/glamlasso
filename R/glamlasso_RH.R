@@ -20,7 +20,7 @@
 #
 
 # H-transform of an array A by a matrix X 
-H<-function(M, A){
+H <- function(M, A){
   d <- dim(A)
   Amat <- matrix(A, nrow = d[1])
   MAmat <- M %*% Amat 
