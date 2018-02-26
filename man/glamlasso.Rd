@@ -189,6 +189,22 @@ plot(c(Beta), type = "h", ylim = range(Beta, fit$coef[, modelno]))
 points(c(Beta))
 lines(fit$coef[ , modelno], col = "red", type = "h")
 
+###with non tensor design component Z
+q <- 5
+alpha <- matrix(rnorm(q)) * rbinom(q, 1, 0.5)
+Z <- matrix(rnorm(n1 * n2 * n3 * q), n1 * n2 *n3, q) 
+Y <- array(rpois(n1 * n2 * n3, exp(Mu + array(Z \%*\% alpha, c(n1, n2, n3)))), dim = c(n1, n2, n3))
+system.time(fit <- glamlasso(X, Y, Z, family = "poisson", nu = 0.1))
+
+modelno <- length(fit$lambda)
+par(mfrow = c(1, 2))
+plot(c(Beta), type = "l", ylim = range(Beta, fit$coef[, modelno]))
+points(c(Beta))
+lines(fit$coef[ , modelno], col = "red")
+plot(c(alpha), type = "h", ylim = range(Beta, fit$alpha[, modelno]))
+points(c(alpha))
+lines(fit$alpha[ , modelno], col = "red", type = "h")
+
 }
 }
 \references{

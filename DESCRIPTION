@@ -1,7 +1,7 @@
 Package: glamlasso
 Type: Package
 Title: Penalization in Large Scale Generalized Linear Array Models
-Version: 3.0
+Version: 3.0.1
 Date: 2018-01-18
 Author: Adam Lund
 Maintainer: Adam Lund <adam.lund@math.ku.dk>
