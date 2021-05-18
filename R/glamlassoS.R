@@ -24,7 +24,7 @@
 #' @title Penalization in Large Scale Generalized Linear Array Models
 #' 
 #' @description  Efficient design matrix free procedure for fitting   a special case of  a generalized linear  model 
-#' with  array structured response and partially tensor structured covariates.  See \cite{Lund et al., 2017} for an application of this special purpose function. 
+#' with  array structured response and partially tensor structured covariates.  See \cite{Lund and Hansen, 2019} for an application of this special purpose function. 
 #'  
 #' @usage  glamlassoS(X, 
 #'            Y,
@@ -34,7 +34,7 @@
 #'            penalty = "lasso",
 #'            intercept = FALSE,
 #'            weights = NULL,
-#'            thetainit = NULL,
+#'            betainit = NULL,
 #'            alphainit = NULL,
 #'            nlambda = 100,
 #'            lambdaminratio = 1e-04,
@@ -69,7 +69,7 @@
 #'  Default is \code{FALSE}. 
 #' @param weights Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}. For option 
 #' \code{family = "binomial"} this array must contain the number of trials and must be provided.
-#' @param thetainit The initial parameter values. Default is NULL in which case all parameters are initialized at zero.
+#' @param betainit The initial parameter values. Default is NULL in which case all parameters are initialized at zero.
 #' @param alphainit A \eqn{q\times 1} vector containing the initial parameter values for the non-tensor parameter. 
 #'  Default is NULL in which case all parameters are initialized at 0.
 #' @param nlambda The number of \code{lambda} values.
@@ -109,35 +109,45 @@
 #'   
 #' @return An object with S3 Class "glamlasso". 
 #' \item{spec}{A string indicating the model family and the penalty.}  
-#' \item{beta}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of 
-#' the parameters for the tensor structured part of the model (\code{beta}) for each \code{lambda}-value.}
-#' \item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates of 
-#' the parameters for the non tensor structured part of the model (\code{alpha}) for each \code{lambda}-value.}. 
-#' If \code{intercept = TRUE} the first row contains the intercept estimate for each \code{lambda}-value.}.
-#' \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
+#' \item{beta}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the 
+#' estimates of the parameters for the tensor structured part of the model 
+#' (\code{beta}) for each \code{lambda}-value.}
+#' \item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates 
+#' of the parameters for the non tensor structured part of the model 
+#' (\code{alpha}) for each \code{lambda}-value. If \code{intercept = TRUE} the 
+#' first row contains the intercept estimate for each \code{lambda}-value.}
+#' \item{lambda}{A vector containing the sequence of penalty values used in the 
+#' estimation procedure.}
 #' \item{df}{The number of nonzero coefficients for each value of \code{lambda}.}	
-#' \item{dimcoef}{A vector giving the dimension of the model coefficient array \eqn{\beta}.}
-#' \item{dimobs}{A vector giving the dimension of the observation (response) array \code{Y}.}
-#' \item{Iter}{A list with 4 items:  
-#' \code{bt_iter_inner}  is total number of backtracking steps performed in the inner loop,
-#' \code{bt_enter_inner} is the number of times the backtracking is initiated in the inner loop,
-#' \code{bt_iter_outer} is total number of backtracking steps performed in the outer loop,
-#' and \code{iter_mat} is a \code{nlambda} \eqn{\times} \code{maxiterouter} matrix containing the  number of 
-#' inner iterations for each \code{lambda} value and each outer iteration and  \code{iter} is total number of iterations i.e. \code{sum(Iter)}.}  
+#' \item{dimcoef}{A vector giving the dimension of the model coefficient array 
+#' \eqn{\beta}.}
+#' \item{dimobs}{A vector giving the dimension of the observation (response) 
+#' array \code{Y}.}
+#' \item{Iter}{A list with 4 items:  \code{bt_iter_inner}  is total number of 
+#' backtracking steps performed in the inner loop, \code{bt_enter_inner} is the 
+#' number of times the backtracking is initiated in the inner loop,
+#' \code{bt_iter_outer} is total number of backtracking steps performed in the 
+#' outer loop, and \code{iter_mat} is a \code{nlambda} \eqn{\times} 
+#' \code{maxiterouter} matrix containing the  number of inner iterations for 
+#' each \code{lambda} value and each outer iteration and  \code{iter} is total 
+#' number of iterations i.e. \code{sum(Iter)}.}  
 #'  
 #' @author  Adam Lund
 #' 
 #' Maintainer: Adam Lund, \email{adam.lund@@math.ku.dk}
 #' 
 #' @references 
-#' Lund, A. and N. R. Hansen (2017). Sparse Network  Estimation for  Dynamical Spatio-temporal Array Models. 
-#'  \emph{ArXiv}.
+#' Lund, A., M. Vincent, and N. R. Hansen (2017). Penalized estimation in 
+#' large-scale generalized linear array models. 
+#' \emph{Journal of Computational and Graphical Statistics}, 26, 3, 709-724.  url = {https://doi.org/10.1080/10618600.2017.1279548}.
+#' 
+#' Lund, A. and N. R. Hansen (2019). Sparse Network  Estimation for  Dynamical Spatio-temporal Array Models. 
+#'  \emph{Journal of Multivariate Analysis}, 174. url = {https://doi.org/10.1016/j.jmva.2019.104532}.  
 #' 
 #' @keywords package 
 #'
 #' @examples 
-#' \dontrun{
-#' 
+#' \donttest{
 #' ##size of example
 #' n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; 
 #'
@@ -166,6 +176,7 @@
 #' system.time(fit <- glamlassoS(X, Y, V , Z))
 #' 
 #' modelno <- length(fit$lambda)
+#' oldmfrow <- par()$mfrow
 #' par(mfrow = c(1, 2))
 #' plot(c(Beta), type="h", ylim = range(Beta, fit$coef[, modelno]))
 #' points(c(Beta))
@@ -173,6 +184,7 @@
 #' plot(c(alpha), type = "h", ylim = range(alpha, fit$alpha[, modelno]))
 #' points(c(alpha))
 #' lines(fit$alpha[ , modelno], col = "red", type = "h")
+#' par(mfrow = oldmfrow)
 #' 
 #' ################ poisson example
 #' Beta <- matrix(rnorm(p1 * p2, 0, 0.1) * rbinom(p1 * p2, 1, 0.1), p1 , p2)
@@ -184,8 +196,8 @@
 #' plot(c(Beta), type = "h", ylim = range(Beta, fit$coef[, modelno]))
 #' points(c(Beta))
 #' lines(fit$coef[ , modelno], col = "red", type = "h")
-#' 
 #' }
+
 
 glamlassoS <-function(X,
                      Y, 
@@ -195,7 +207,7 @@ glamlassoS <-function(X,
                      penalty = "lasso",
                      intercept = FALSE,
                      weights = NULL, 
-                     thetainit = NULL,
+                     betainit = NULL,
                      alphainit = NULL,
                      nlambda = 100,
                      lambdaminratio = 0.0001,
@@ -295,7 +307,7 @@ weights <- matrix(weights, n1, n2 * n3)
 }
 
 ####check on initial values 
-if(is.null(thetainit)){thetainit <- matrix(0, p1, p2 * p3)}else{thetainit <- matrix(thetainit, p1, p2 * p3)}
+if(is.null(betainit)){betainit <- matrix(0, p1, p2 * p3)}else{betainit <- matrix(betainit, p1, p2 * p3)}
 
 if(is.null(alphainit)){alphainit <- matrix(0, q, 1)}
 
@@ -374,7 +386,7 @@ res <- gdpg(X1, X2, X3,
             Y, matrix(0, n3, n1 * n2),
             V, #maybe V could be used in source only when S==1!!!!!
             weights, matrix(0, n3, n1 * n2),
-            thetainit, matrix(0, 1, 1), matrix(0, 1, 1),
+            betainit, matrix(0, 1, 1), matrix(0, 1, 1),
             alphainit, ## non ten par
             family,  
             penalty,

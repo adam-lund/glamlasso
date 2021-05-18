@@ -3,7 +3,7 @@
 #     R interface/wrapper for the Rcpp function gdpg in the glamlasso package.
 #
 #     Intended for use with R.
-#     Copyright (C) 2017 Adam Lund
+#     Copyright (C) 2021 Adam Lund
 # 
 #     This program is free software: you can redistribute it and/or modify
 #     it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 #' 
 #' @description  Efficient design matrix free procedure for fitting large scale penalized  2 or 3-dimensional
 #' generalized linear array models (GLAM). It is also possible to fit an additional non-tensor structured component 
-#' - e.g an intercept - however this can reduce the computational efficiency of the procedure substanstially. 
+#' - e.g an intercept - however this can reduce the computational efficiency of the procedure substantially. 
 #' Currently the LASSO penalty and the SCAD penalty are both implemented. Furthermore,
 #' the Gaussian model with identity link,  the Binomial model with logit link, the Poisson model
 #' with log link and the Gamma model with log link is currently implemented. The underlying algorithm combines gradient descent and proximal gradient (gdpg algorithm), see  \cite{Lund et al., 2017}. 
@@ -37,7 +37,7 @@
 #'           penalty = "lasso",
 #'           intercept = FALSE,
 #'           weights = NULL,
-#'           thetainit = NULL,
+#'           betainit = NULL,
 #'           alphainit = NULL,
 #'           nlambda = 100,
 #'           lambdaminratio = 1e-04,
@@ -71,7 +71,7 @@
 #'  Default is \code{FALSE}. 
 #' @param weights Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}. For option 
 #' \code{family = "binomial"} this array must contain the number of trials and must be provided.
-#' @param thetainit The initial parameter values. Default is NULL in which case all parameters are initialized at zero.
+#' @param betainit The initial parameter values. Default is NULL in which case all parameters are initialized at zero.
 #' @param alphainit A \eqn{q\times 1} vector containing the initial parameter values for the non-tensor parameter. 
 #'  Default is NULL in which case all parameters are initialized at 0.
 #' @param nlambda The number of \code{lambda} values.
@@ -102,53 +102,74 @@
 #' used if \code{iwls = "exact"}.
 #' 
 #' @details Consider a (two component) generalized linear model (GLM) 
-#' \deqn{g(m) = X\theta + Z\alpha =: \eta.}
-#' Here \eqn{g} is a link function, \eqn{m} is a \eqn{n\times 1} vector containing the mean of the 
-#' response variable  \eqn{Y}, \eqn{Z} is a \eqn{n\times q} matrix and  \eqn{X} a \eqn{n\times p} matrix  with tensor structure 
-#'  \deqn{X =  X_d\otimes\ldots\otimes X_1,}
-#'   where \eqn{X_1,\ldots,X_d} are the marginal \eqn{n_i\times p_i} design matrices (tensor factors) such that
-#'  \eqn{p = p_1\cdots p_d} and  \eqn{n=n_1\cdots n_d}. Then \eqn{\theta} is the \eqn{p\times 1} parameter associated with the tensor component
-#'   \eqn{X} and \eqn{\alpha} the \eqn{q\times 1} parameter associated with the non-tensor component \eqn{Z}, e.g. the intercept. 
+#' \deqn{g(\mu) = X\beta  + Z\alpha =: \eta.}
+#' Here \eqn{g} is a link function, \eqn{\mu} is a \eqn{n\times 1} vector 
+#' containing the mean of the response variable  \eqn{Y}, \eqn{Z} is a 
+#' \eqn{n\times q} matrix and  \eqn{X} a \eqn{n\times p} matrix  with tensor structure 
+#'  \deqn{X =  X_d\otimes\cdots\otimes X_1,}
+#' where \eqn{X_1,\ldots,X_d} are the marginal \eqn{n_i\times p_i} design 
+#' matrices (tensor factors) such that \eqn{p = p_1\cdots p_d} and  
+#' \eqn{n=n_1\cdots n_d}. Then \eqn{\beta} is the \eqn{p\times 1} parameter associated 
+#' with the tensor component \eqn{X} and \eqn{\alpha} the \eqn{q\times 1} 
+#' parameter associated with the non-tensor component \eqn{Z}, e.g. the intercept. 
 #'  
-#' The related log-likelihood is a function of  \eqn{\tilde\theta:=(\theta,\alpha)} through the linear predictor \eqn{\eta} i.e. \eqn{\tilde\theta \mapsto l(\eta(\tilde\theta))}.
+#' Using the generalized linear array model (GLAM) framework the model equation is
+#'  \deqn{g(\mu) = \textrm{vec}(\rho(X_d,\rho(X_{d-1},\ldots,\rho(X_1,B)))) + Z\alpha ,}
+#' where \eqn{\rho} is the so called rotated \eqn{H}-transform and \eqn{B} is the
+#' array version of \eqn{\beta}. See \cite{Currie et al., 2006} for more details.
+#'
+#' The  log-likelihood is a function of  \eqn{\theta  :=(\beta,\alpha)} through 
+#' the linear predictor \eqn{\eta} i.e. \eqn{\theta \mapsto l(\eta(\theta))}.
 #' In the usual exponential family framework this can be expressed as
-#' \deqn{l(\eta(\tilde\theta)) = \sum_{i = 1}^n a_i \frac{y_i \vartheta(\eta_i(\tilde\theta)) - b(\vartheta(\eta_i(\tilde\theta)))}{\psi}+c(y_i,\psi)} 
-#' where \eqn{\vartheta}, the canonical parameter map,  is linked to the  linear predictor via the identity
-#'  \eqn{\eta(\tilde\theta) = g(b'(\vartheta))} with \eqn{b} the cumulant function. Here \eqn{a_i \ge 0, i = 1,\ldots,n} are observation weights and
-#'  \eqn{\psi} is the dispersion parameter.
+#' \deqn{l(\eta(\theta )) = \sum_{i = 1}^n a_i \frac{y_i \vartheta(\eta_i(\theta)) - b(\vartheta(\eta_i(\theta  )))}{\psi}+c(y_i,\psi)} 
+#' where \eqn{\vartheta}, the canonical parameter map,  is linked to the  linear
+#'  predictor via the identity \eqn{\eta(\theta) = g(b'(\vartheta))} with \eqn{b}
+#'  the cumulant function. Here \eqn{a_i \ge 0, i = 1,\ldots,n} are observation
+#'  weights and \eqn{\psi} is the dispersion parameter.
 #' 
-#' By ignoring the non-tensor component \eqn{Z} (assume \eqn{\alpha = 0}) we can use the generalized linear array model (GLAM) framework to write the model equation as
-#'  \deqn{g(M) = \rho(X_d,\rho(X_{d-1},\ldots,\rho(X_1,\Theta))),}
-#' where \eqn{\rho} is the so called rotated \eqn{H}-transform and \eqn{M} and \eqn{\Theta} 
-#' are the  array versions of \eqn{m} and \eqn{\theta} respectively. See \cite{Currie et al., 2006} for more details.
-#'         
-#' For \eqn{d = 3} or \eqn{d = 2}, using only the marginal matrices \eqn{X_1,X_2,\ldots}, the function \code{glamlasso} solves the penalized estimation problem 
+#' For \eqn{d = 3} or \eqn{d = 2}, using only the marginal matrices \eqn{X_1,X_2,\ldots}, 
+#' the function \code{glamlasso} solves the penalized estimation problem 
 #' \deqn{\min_{\theta} -l(\eta(\theta)) + \lambda J (\theta),} 
-#' for \eqn{J} either the LASSO or SCAD penalty function,  in the GLAM setup for a sequence of penalty parameters \eqn{\lambda>0}. The underlying algorithm is based on an outer 
-#' gradient descent loop and an inner proximal gradient based loop. We note that if \eqn{J} is not 
-#' convex, as with the SCAD penalty, we use the multiple step adaptive lasso procedure to loop over the inner proximal algorithm, see \cite{Lund et al., 2017} for more details.
+#' for \eqn{J} either the LASSO or SCAD penalty function,  in the GLAM setup for 
+#' a sequence of penalty parameters \eqn{\lambda>0}. The underlying algorithm is 
+#' based on an outer gradient descent loop and an inner proximal gradient based 
+#' loop. We note that if \eqn{J} is not convex, as with the SCAD penalty, we use
+#' the multiple step adaptive lasso procedure to loop over the inner proximal 
+#' algorithm, see \cite{Lund et al., 2017} for more details.
 #'   
-#' Furthermore, the function \code{glamlasso} also solves the penalized estimation problem for a model that  includes  a non-tensor component \eqn{Z}, e.g. an intercept. However, 
-#' not without incurring a  potentially substantial computational cost. Especially it is not advisable to inlcude a very large non-tensor component in the model (large \eqn{q}) 
-#' and even  adding an intecept to the model (\eqn{q=1}) will result in a reduction of computational efficiency.     
+#' Note that the package is optimized towards solving the estimation problem, 
+#' for \eqn{\alpha = 0}. For \eqn{\alpha \neq 0} the user incurs a  potentially 
+#' substantial computational cost. Especially it is not advisable to inlcude a 
+#' very large non-tensor component  in the model (large \eqn{q}) and even  
+#' adding an intecept to the model (\eqn{q=1}) will result in a reduction of 
+#' computational efficiency.     
 #'   
-#' @return An object with S3 Class "glamlasso". 
-#' \item{spec}{A string indicating the GLAM dimension (\eqn{d = 2, 3}), the model family and the penalty.}  
-#' \item{beta}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the estimates of 
-#' the parameters for the tensor structured part of the model (\code{beta}) for each \code{lambda}-value.}
-#' \item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates of 
-#' the parameters for the non tensor structured part of the model (\code{alpha}) for each \code{lambda}-value.}. 
-#' If \code{intercept = TRUE} the first row contains the intercept estimate for each \code{lambda}-value.}.
-#' \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
+#'   
+#' @return An object with S3 Class 'glamlasso'. 
+#' \item{spec}{A string indicating the GLAM dimension (\eqn{d = 2, 3}), the model 
+#' family and the penalty.}  
+#' \item{beta}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the 
+#' estimates of the parameters for the tensor structured part of the model 
+#' (\code{beta}) for  each \code{lambda}-value.}
+#' \item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates 
+#' of the parameters for the non tensor structured part of the model \code{alpha} 
+#' for each \code{lambda}-value. If \code{intercept = TRUE} the first row 
+#' contains the intercept estimate for each \code{lambda}-value.}
+#' \item{lambda}{A vector containing the sequence of penalty values used in the 
+#' estimation procedure.}
 #' \item{df}{The number of nonzero coefficients for each value of \code{lambda}.}	
-#' \item{dimcoef}{A vector giving the dimension of the model coefficient array \eqn{\beta}.}
-#' \item{dimobs}{A vector giving the dimension of the observation (response) array \code{Y}.}
+#' \item{dimcoef}{A vector giving the dimension of the model coefficient array 
+#' \eqn{\beta}.}
+#' \item{dimobs}{A vector giving the dimension of the observation (response) 
+#' array \code{Y}.}
 #' \item{Iter}{A list with 4 items:  
-#' \code{bt_iter_inner}  is total number of backtracking steps performed in the inner loop,
-#' \code{bt_enter_inner} is the number of times the backtracking is initiated in the inner loop,
-#' \code{bt_iter_outer} is total number of backtracking steps performed in the outer loop,
-#' and \code{iter_mat} is a \code{nlambda} \eqn{\times} \code{maxiterouter} matrix containing the  number of 
-#' inner iterations for each \code{lambda} value and each outer iteration and  \code{iter} is total number of iterations i.e. \code{sum(Iter)}.}  
+#' \code{bt_iter_inner}  is total number of backtracking steps performed in the 
+#' inner loop, \code{bt_enter_inner} is the number of times the backtracking is 
+#' initiated in  the inner loop, \code{bt_iter_outer} is total number of 
+#' backtracking steps performed in the  outer loop, and \code{iter_mat} is a 
+#' \code{nlambda} \eqn{\times} \code{maxiterouter} matrix containing the  number 
+#' of inner iterations for each \code{lambda} value and each outer iteration and  
+#' \code{iter} is total number of iterations i.e. \code{sum(Iter)}.}  
 #'  
 #' @author  Adam Lund
 #' 
@@ -165,7 +186,8 @@
 #' 
 #' @keywords package 
 #'
-#' @examples 
+#' @examples
+#' \donttest{
 #' ##size of example 
 #' n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 12; p2 <- 6; p3 <- 4
 #' 
@@ -187,7 +209,6 @@
 #' points(c(Beta))
 #' lines(fit$coef[ , modelno], col = "red", type = "h")
 #' 
-#' \dontrun{
 #' ###with non tensor design component Z
 #' q <- 5
 #' alpha <- matrix(rnorm(q)) * rbinom(q, 1, 0.5)
@@ -196,6 +217,7 @@
 #' system.time(fit <- glamlasso(X, Y, Z))
 #' 
 #' modelno <- length(fit$lambda)
+#' oldmfrow <- par()$mfrow
 #' par(mfrow = c(1, 2))
 #' plot(c(Beta), type = "l", ylim = range(Beta, fit$coef[, modelno]))
 #' points(c(Beta))
@@ -203,6 +225,7 @@
 #' plot(c(alpha), type = "h", ylim = range(Beta, fit$alpha[, modelno]))
 #' points(c(alpha))
 #' lines(fit$alpha[ , modelno], col = "red", type = "h")
+#' par(mfrow = oldmfrow)
 #' 
 #' ################ poisson example
 #' Beta <- array(rnorm(p1 * p2 * p3, 0, 0.1) * rbinom(p1 * p2 * p3, 1, 0.1), c(p1 , p2, p3))
@@ -223,6 +246,7 @@
 #' system.time(fit <- glamlasso(X, Y, Z, family = "poisson", nu = 0.1))
 #' 
 #' modelno <- length(fit$lambda)
+#' oldmfrow <- par()$mfrow
 #' par(mfrow = c(1, 2))
 #' plot(c(Beta), type = "l", ylim = range(Beta, fit$coef[, modelno]))
 #' points(c(Beta))
@@ -230,7 +254,7 @@
 #' plot(c(alpha), type = "h", ylim = range(Beta, fit$alpha[, modelno]))
 #' points(c(alpha))
 #' lines(fit$alpha[ , modelno], col = "red", type = "h")
-#' 
+#' par(mfrow = oldmfrow)
 #' }
 
 glamlasso <-function(X,
@@ -240,7 +264,7 @@ glamlasso <-function(X,
                      penalty = "lasso",
                      intercept = FALSE,
                      weights = NULL,
-                     thetainit = NULL,
+                     betainit = NULL,
                      alphainit = NULL,
                      nlambda = 100,
                      lambdaminratio = 0.0001,
@@ -342,7 +366,7 @@ weights <- matrix(weights, n1, n2 * n3)
 
 
 ####check on initial values 
-if(is.null(thetainit)){thetainit <- matrix(0, p1, p2 * p3)}else{thetainit <- matrix(thetainit, p1, p2 * p3)}
+if(is.null(betainit)){betainit <- matrix(0, p1, p2 * p3)}else{betainit <- matrix(betainit, p1, p2 * p3)}
 
 if(is.null(alphainit)){alphainit <- matrix(0, q, 1)}
 
@@ -421,7 +445,7 @@ res <- gdpg(X1, X2, X3,
             Y, matrix(0, n3, n1 * n2),
             matrix(0, n1, n2 * n3), #maybe V could be used in source only when S==1!!!!!
             weights, matrix(0, n3, n1 * n2),
-            thetainit, matrix(0, 1, 1), matrix(0, 1, 1),
+            betainit, matrix(0, 1, 1), matrix(0, 1, 1),
             alphainit, ## non ten par
             family,  
             penalty,
@@ -494,13 +518,14 @@ out <- list()
 
 class(out) <- "glamlasso"
 
-out$spec <- paste("", dimglam,"-dimensional ", penalty," penalized ", family," GLAM") 
-out$coef <- res$Beta[ , 1:endmodelno]
 out$alpha <- res$alpha[ , 1:endmodelno]
-out$lambda <- res$lambda[1:endmodelno] 
+out$coef <- res$Beta[ , 1:endmodelno]
 out$df <- res$df[1:endmodelno]
 out$dimcoef <- c(p1, p2, p3)[1:dimglam]
 out$dimobs <- c(n1, n2, n3)[1:dimglam]
+out$family <- family
+out$lambda <- res$lambda[1:endmodelno] 
+out$spec <- paste("", dimglam,"-dimensional ", penalty," penalized ", family," GLAM") 
 
 Iter <- list()
 Iter$bt_enter_inner <- res$btenterprox

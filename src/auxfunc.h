@@ -14,7 +14,7 @@
     b - cummulant function.
 
     Intended for use with R.
-    Copyright (C) 2017 Adam Lund
+    Copyright (C) 2021 Adam Lund
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -70,9 +70,9 @@ return Mnew;
 }
 
 //////////////////// weigthed product
-arma::mat wprod(arma::mat const& W, 
-                arma::mat const& Phi1, arma::mat const& Phi2, arma::mat const& Phi3, 
-                arma::mat const& B, int n1, int n2, int p2, int p3){
+arma::mat wprod(arma::mat const& W, arma::mat const& Phi1, arma::mat const& Phi2, 
+                arma::mat const& Phi3, arma::mat const& B, int n1, int n2, 
+                int p2, int p3){
     
 //TIMER_START
     
@@ -85,9 +85,9 @@ return WXB;
 }
 
 ////////////////// weigthed inner product
-arma::mat winprod(arma::mat const& W, 
-                  arma::mat const& Phi1, arma::mat const& Phi2, arma::mat const& Phi3, 
-                  arma::mat const& B, int n1, int n2, int n3, int p1, int p2, int p3){
+arma::mat winprod(arma::mat const& W, arma::mat const& Phi1, arma::mat const& Phi2,
+                  arma::mat const& Phi3, arma::mat const& B, int n1, int n2, 
+                  int n3, int p1, int p2, int p3){
     
 //TIMER_START
     
@@ -95,7 +95,8 @@ arma::mat XB = RHmat(Phi3, RHmat(Phi2, RHmat(Phi1, B, p2, p3), p3, n1), n1, n2);
 
 arma::mat WXB = W % XB;
 
-arma::mat XWXB = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), WXB, n2, n3), n3, p1), p1, p2);
+arma::mat XWXB = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), WXB, n2, n3), 
+                              n3, p1), p1, p2);
 
 return XWXB;
 
@@ -109,25 +110,28 @@ double scadpenalty(arma::mat const& gam, double a, arma::mat const& zv){
 
 arma::mat absbeta = abs(zv);
 return accu(gam % absbeta % (absbeta <= gam) 
-- (pow(zv, 2) - 2 * a * gam % absbeta + pow(gam, 2)) / (2 * (a - 1)) % (gam < absbeta && absbeta <= a * gam) 
-+ (a + 1) * pow(gam, 2) / 2 % (absbeta > a * gam));
+              - (pow(zv, 2) - 2 * a * gam % absbeta + pow(gam, 2)) 
+              / (2 * (a - 1)) % (gam < absbeta && absbeta <= a * gam) 
+              + (a + 1) * pow(gam, 2) / 2 % (absbeta > a * gam));
 
 }
 
 double penfunc(arma::mat const& gam, arma::mat const& zv, std::string pen){
-  double out;
+double out;
   
 if(pen == "lasso"){out = accu(gam % abs(zv));}
 
 if(pen == "scad"){
-  arma::mat absbeta = abs(zv);
   
-double  a=3.7;
+arma::mat absbeta = abs(zv);
+double  a = 3.7;
   
-out = accu(gam % absbeta % (absbeta <= gam)  - (pow(zv, 2) - 2 * a * gam % absbeta + pow(gam, 2)) / (2 * (a - 1)) % (gam < absbeta && absbeta <= a * gam) 
-                                + (a + 1) * pow(gam, 2) / 2 % (absbeta > a * gam));
+out = accu(gam % absbeta % (absbeta <= gam)  
+             - (pow(zv, 2) - 2 * a * gam % absbeta + pow(gam, 2)) / 
+               (2 * (a - 1)) % (gam < absbeta && absbeta <= a * gam) 
+             + (a + 1) * pow(gam, 2) / 2 % (absbeta > a * gam));
   
-                                }
+}
 
 return out;
 
@@ -146,120 +150,147 @@ return (zv >= gam) % (zv - gam) + (zv <= -gam) % (zv + gam);
 double sum_square(arma::mat const& x){return accu(x % x);}
 
 //////////////////// linear predictor func
-mat etafunc(mat const& A1, mat const& A2, mat const& A3,
-          mat  V, 
-          mat const& x, int n, int b) {
+mat etafunc(mat const& A1, mat const& A2, mat const& A3, mat  V,  mat const& x, 
+            int n, int b){
   
-  int n1 = A1.n_rows, n2 = A2.n_rows, n3 = n / (n1 * n2);
-  mat eta;
-  if(b == 1){
+int n1 = A1.n_rows, n2 = A2.n_rows, n3 = n / (n1 * n2);
+mat eta;
+if(b == 1){
     
-    mat tmp(n1, n2 * n3), phibeta =  A1 * x * A2.t();
+mat tmp(n1, n2 * n3), phibeta =  A1 * x * A2.t();
 
-      for(int i = 0; i < n3; i++){tmp.cols(i * n2, (i + 1) * n2 - 1) = V.cols(i * n2, (i + 1) * n2 - 1) % phibeta;}
+for(int i = 0; i < n3; i++){
+
+tmp.cols(i * n2, (i + 1) * n2 - 1) = V.cols(i * n2, (i + 1) * n2 - 1) % phibeta;
+
+}
+
 eta = tmp;
     
-  }
+}
   
-  if(b == 2){  
+if(b == 2){  
       
-    mat tmp(n3, n1 * n2), phibeta =  A3 * x;
-   for(int j = 0; j < n2; j++){for(int i = 0; i < n1; i++){tmp.col(i + j * n1) = V.col(i + j * n1) % phibeta;}}
-   eta = tmp;
+mat tmp(n3, n1 * n2), phibeta =  A3 * x;
+for(int j = 0; j < n2; j++){
+for(int i = 0; i < n1; i++){
+tmp.col(i + j * n1) = V.col(i + j * n1) % phibeta;
+}
+}
+
+eta = tmp;
    
-  }
+}
     
-   return eta;
+return eta;
  
 }
 
-double wsqloss(arma::mat const& W, arma::mat const& V,
-                     arma::mat const& A1, arma::mat const& A2, arma::mat const& A3, arma::mat const& B,
-                     arma::mat const& b, arma::mat const& x, arma::vec xa,
-                     int nv, int c2, int c3, int r1, int r2, int nonten, int S) {
+double wsqloss(arma::mat const& W, arma::mat const& V, arma::mat const& A1, 
+               arma::mat const& A2, arma::mat const& A3, arma::mat const& B,
+               arma::mat const& b, arma::mat const& x, arma::vec xa, int nv, 
+               int c2, int c3, int r1, int r2, int nonten, int S) {
   
   //TIMER_START
   
 arma::mat WAx;
 arma::mat tmp; 
+
 if(nonten == 1){
 
 int r3 = nv / (r1 * r2);
 tmp = B * xa;
 tmp.reshape(r1, r2 * r3);
     
-if(S == 1){WAx = etafunc(A1, A2, A3, V, x, nv, S) + W % tmp;}else{WAx = W % (RHmat(A3, RHmat(A2, RHmat(A1, x, c2, c3), c3, r1), r1, r2) + tmp);}
+if(S == 1){
+
+WAx = etafunc(A1, A2, A3, V, x, nv, S) + W % tmp;
+
+}else{WAx = W % (RHmat(A3, RHmat(A2, RHmat(A1, x, c2, c3), c3, r1), r1, r2) + tmp);}
       
-  }else{ 
+}else{ 
     
-if(S == 1){WAx = etafunc(A1, A2, A3, V, x, nv, S);}else{WAx = wprod(W, A1, A2, A3, x, r1, r2, c2, c3);}  
+if(S == 1){
   
-  }
+WAx = etafunc(A1, A2, A3, V, x, nv, S);
+
+}else{WAx = wprod(W, A1, A2, A3, x, r1, r2, c2, c3);}  
   
-  return 0.5 * sum_square(WAx - b) / nv;
+}
+
+return 0.5 * sum_square(WAx - b) / nv;
   
 }
 
 //////////////////// Square loss function  
-double sqloss(arma::mat const& A1, arma::mat const& A2, arma::mat const& A3, arma::mat const& B, arma::mat const& V,
-                 arma::mat const& y, arma::mat const& x, arma::vec const& xa, int nv, int c2, int c3, int r1, int r2, 
-                 int nonten, int S) {
+double sqloss(arma::mat const& A1, arma::mat const& A2, arma::mat const& A3,
+              arma::mat const& B, arma::mat const& V, arma::mat const& y, 
+              arma::mat const& x, arma::vec const& xa, int nv, int c2, int c3, 
+              int r1, int r2, int nonten, int S) {
   
   //TIMER_START
 arma::mat Ax;
-if(S == 1){Ax = etafunc(A1, A2, A3, V, x, nv, S);}else{Ax = RHmat(A3, RHmat(A2, RHmat(A1, x, c2, c3), c3, r1), r1, r2);}
+if(S == 1){
+Ax = etafunc(A1, A2, A3, V, x, nv, S);
+}else{Ax = RHmat(A3, RHmat(A2, RHmat(A1, x, c2, c3), c3, r1), r1, r2);}
   
-  if(nonten == 1){
+if(nonten == 1){
     
-    return 0.5 * sum_square(vectorise(Ax - y) + B * xa) / nv;
+return 0.5 * sum_square(vectorise(Ax - y) + B * xa) / nv;
     
-  }else{
+}else{
     
-    return 0.5 * sum_square(Ax - y) / nv;
+return 0.5 * sum_square(Ax - y) / nv;
     
-  }
-  
+}
 }
 
 ////////////////////  square loss function for reduced rank regression
 double sqlossrr(mat const& X1, mat const& X2, mat const& X3, mat const& Z, 
-                mat const& Y,
-                mat const& par, mat const& w, mat const& alpha, int n, int const& b, int nonten) {
+                mat const& Y, mat const& par, mat const& w, mat const& alpha,
+                int n, int const& b, int nonten) {
 
-    vec Ax, wvec;
-  double tmp;
-    if(b == 1){//#par 12
+vec Ax, wvec;
+double tmp;
+
+if(b == 1){//#par 12
         
 wvec = w;     //   w  is n3x1 
 Ax = vectorise(X1 * par * X2.t()); // this is n1xn2 --> n1n2x1//so AX*w.t is n1n2xn3
    
-    }else{//here Y is rotated !!
+}else{//here Y is rotated !!
       
-        wvec = vectorise(w);
-        Ax = X3 * par;
+wvec = vectorise(w);
+Ax = X3 * par;
        
-    }
+}
     
-  if (nonten == 1){
+if (nonten == 1){
     
-    tmp =  0.5 * sum_square(vectorise(Y) - vectorise(Ax * wvec.t()) - Z * alpha) / n;
+tmp =  0.5 * sum_square(vectorise(Y) - vectorise(Ax * wvec.t()) - Z * alpha) / n;
     
-    }else{tmp =  0.5 * sum_square(vectorise(Y) - vectorise(Ax * wvec.t())) / n;}  
+}else{tmp =  0.5 * sum_square(vectorise(Y) - vectorise(Ax * wvec.t())) / n;}  
     
-    return tmp;
+return tmp;
     
 }
 
 ////////////////////   weighted loss function for reduced rank regression
 double wsqlossrr(mat const& X1, mat const& X2, mat const& X3, mat const& Z, 
                 mat const& Y, //weighted y
-                mat const& par, mat const& w, mat const& alpha, int n, int const& b, int nonten) {
+                mat const& par, mat const& w, mat const& alpha, int n, 
+                int const& b, int nonten) {
   
-  double tmp;
+double tmp;
   
-  if (nonten == 1){
-    tmp =  0.5 * sum_square(vectorise(Y) - vectorise(etafunc(X1, X2, X3, w, par, n, b)) - Z * alpha) / n;
-    }else{tmp =  0.5 * sum_square(vectorise(Y) - vectorise(etafunc(X1, X2, X3, w, par, n, b))) / n;}  
+if (nonten == 1){
+tmp =  0.5 * sum_square(vectorise(Y) 
+                          - vectorise(etafunc(X1, X2, X3, w, par, n, b)) 
+                          - Z * alpha) / n;
+}else{
+tmp =  0.5 * sum_square(vectorise(Y) 
+                          - vectorise(etafunc(X1, X2, X3, w, par, n, b))) / n;
+}  
   
 return tmp;
 
@@ -268,18 +299,12 @@ return tmp;
 /////////////////outer product function
 mat outermat(mat const& Beta12, vec const& Beta3){
     
-    int p1 = Beta12.n_rows;
-    int p2 = Beta12.n_cols;
-    int p3 = Beta3.n_elem;
-    mat Beta(p1, p2 * p3) ;
-    for(int i = 0; i < p3; i++){
-        
-        Beta.cols(i * p2, (i + 1) * p2 - 1) = Beta3(i) * Beta12;
-        
-    }
-    
-    
-    return Beta;
+int p1 = Beta12.n_rows, p2 = Beta12.n_cols, p3 = Beta3.n_elem;
+mat Beta(p1, p2 * p3);
+
+for(int i = 0; i < p3; i++){Beta.cols(i * p2, (i + 1) * p2 - 1) = Beta3(i) * Beta12;}
+
+return Beta;
     
 }
 
@@ -581,8 +606,7 @@ arma::mat gradloglike(arma::mat const& Y,
                       arma::mat const& Phi1, arma::mat const& Phi2, arma::mat const& Phi3,  
                       arma::mat const& mueta, arma::mat const& eta,
                       int n2, int n3, int p1, int p2, int n, 
-                      string fam
-                        ){
+                      string fam){
   
 arma::mat out, tmp = dtheta(eta, fam) % (mueta - Y);
 out = RHmat(Phi3.t(), RHmat(Phi2.t(), RHmat(Phi1.t(), Weights % tmp, n2, n3), n3, p1), p1, p2) / n;

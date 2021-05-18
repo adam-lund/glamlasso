@@ -25,7 +25,7 @@
 #' 
 #' @description Efficient design matrix free procedure for fitting large scale penalized reduced rank
 #'  regressions in a 3-dimensional generalized linear array model. To obtain a factorization of the parameter array, 
-#'  the \code{glamlassoRR} function performes a block relaxation scheme within the gdpg algorithm, see \cite{Lund et al., 2017}. 
+#'  the \code{glamlassoRR} function performes a block relaxation scheme within the gdpg algorithm, see \cite{Lund and Hansen, 2018}. 
 #'
 #' @usage  glamlassoRR(X, 
 #'             Y, 
@@ -34,7 +34,7 @@
 #'             penalty = "lasso",
 #'             intercept = FALSE,
 #'             weights = NULL,
-#'             thetainit = NULL,
+#'             betainit = NULL,
 #'             alphainit = NULL,
 #'             nlambda = 100,
 #'             lambdaminratio = 1e-04,
@@ -67,7 +67,7 @@
 #' coulmn in the non-tensor design component \code{Z} is all 1s. Default is \code{FALSE}. 
 #' @param weights Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}. For option 
 #' \code{family = "binomial"} this array must contain the number of trials and must be provided.
-#' @param thetainit A list (length 2) containing the initial parameter values for each of the parameter factors. 
+#' @param betainit A list (length 2) containing the initial parameter values for each of the parameter factors. 
 #' Default is NULL in which case all parameters are initialized at 0.01.
 #' @param alphainit A \eqn{q\times 1} vector containing the initial parameter values for the non-tensor parameter. 
 #' Default is NULL in which case all parameters are initialized at 0.
@@ -99,43 +99,62 @@
 #' sizes and presumably more backtracking in the inner loop. The default is \code{nu = 1} and the option is only 
 #' used if \code{iwls = "exact"}.
 #' 
-#' @details Given the setting from \code{\link{glamlasso}} we  place a reduced rank
-#'  restriction on the \eqn{p_1\times p_2\times p _3} parameter array \eqn{\Theta} given by
-#' \deqn{\Theta=(\Theta_{i,j,k})_{i,j,k} = (\gamma_{k}\beta_{i,j})_{i,j,k}, \ \ \ \gamma_k,\beta_{i,j}\in \mathcal{R}.}  
-#'  The  \code{glamlassoRR} function  solves the PMLE problem by combining a block relaxation scheme with the gdpg algorithm. This scheme alternates between  optimizing over the first 
-#' parameter block \eqn{\beta=(\beta_{i,j})_{i,j}} and  the second block \eqn{\gamma=(\gamma_k)_k} while fixing the second resp. first block. We note that the 
-#' individual parameter blocks are only identified up to a multiplicative constant.
+#' @details Given the setting from \code{\link{glamlasso}} we place a reduced rank
+#' restriction on the \eqn{p_1\times p_2\times p _3} parameter array \eqn{B} 
+#' given by
+#' \deqn{B=(B_{i,j,k})_{i,j,k} = (\gamma_{k}\kappa_{i,j})_{i,j,k}, \ \ \ \gamma_k,\kappa_{i,j}\in \mathcal{R}.}  
+#' The  \code{glamlassoRR} function  solves the PMLE problem by combining a 
+#' block relaxation scheme with the gdpg algorithm. This scheme alternates 
+#' between  optimizing over the first parameter block \eqn{\kappa=(\kappa_{i,j})_{i,j}} 
+#' and  the second block \eqn{\gamma=(\gamma_k)_k} while fixing the second resp. 
+#' first block. 
+#' 
+#' Note that the individual parameter blocks are only identified up to a 
+#' multiplicative constant. Also note that the algorithm is sensitive to
+#' inital values \code{betainit} which can prevent convergence. 
 #' 
 #' @return An object with S3 Class "glamlasso". 
 #' \item{spec}{A string indicating the model family and the penalty.}  
-#' \item{coef12}{A \eqn{p_1 p_2 \times} \code{nlambda} matrix containing the estimates of 
-#' the first model coefficient factor  (\eqn{\beta}) for each \code{lambda}-value.}
-#' \item{coef3}{A \eqn{p_3 \times} \code{nlambda} matrix containing the estimates of 
-#' the second model coefficient factor  (\eqn{\gamma}) for each \code{lambda}-value.}
-#' \item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates of 
-#' the parameters for the non tensor structured part of the model (\code{alpha}) for each \code{lambda}-value.}. 
-#' If \code{intercept = TRUE} the first row contains the intercept estimate for each \code{lambda}-value.}.
-#' \item{lambda}{A vector containing the sequence of penalty values used in the estimation procedure.}
+#' \item{coef12}{A \eqn{p_1 p_2 \times} \code{nlambda} matrix containing the 
+#' estimates of the first model coefficient factor  (\eqn{\kappa}) for each 
+#' \code{lambda}-value.}
+#' \item{coef3}{A \eqn{p_3 \times} \code{nlambda} matrix containing the 
+#' estimates of the second model coefficient factor  (\eqn{\gamma}) for each 
+#' \code{lambda}-value.}
+#' \item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates 
+#' of the parameters for the non tensor structured part of the model 
+#' (\code{alpha}) for each \code{lambda}-value. If \code{intercept = TRUE} the 
+#' first row contains the intercept estimate for each \code{lambda}-value.}
+#' \item{lambda}{A vector containing the sequence of penalty values used in the 
+#' estimation procedure.}
 #' \item{df}{The number of nonzero coefficients for each value of \code{lambda}.}	
-#' \item{dimcoef}{A vector giving the dimension of the model coefficient array \eqn{\beta}.}
-#' \item{dimobs}{A vector giving the dimension of the observation (response) array \code{Y}.}
-#' \item{Iter}{A list with 4 items:  
-#' \code{bt_iter_inner}  is total number of backtracking steps performed in the inner loop,
-#' \code{bt_enter_inner} is the number of times the backtracking is initiated in the inner loop,
-#' \code{bt_iter_outer} is total number of backtracking steps performed in the outer loop,
-#' and \code{iter_mat} is a \code{nlambda} \eqn{\times} \code{maxiterouter} matrix containing the  number of 
-#' inner iterations for each \code{lambda} value and each outer iteration and  \code{iter} is total number of iterations i.e. \code{sum(Iter)}.}  
+#' \item{dimcoef}{A vector giving the dimension of the model coefficient array 
+#' \eqn{\beta}.}
+#' \item{dimobs}{A vector giving the dimension of the observation (response) 
+#' array \code{Y}.}
+#' \item{Iter}{A list with 4 items: \code{bt_iter_inner}  is total number of 
+#' backtracking steps performed in the inner loop, \code{bt_enter_inner} is the 
+#' number of times the backtracking is initiated in the inner loop, 
+#' \code{bt_iter_outer} is total number of backtracking steps performed in the 
+#' outer loop, and \code{iter_mat} is a \code{nlambda} \eqn{\times} 
+#' \code{maxiterouter} matrix containing the  number of inner iterations for 
+#' each \code{lambda} value and each outer iteration and  \code{iter} is total 
+#' number of iterations i.e. \code{sum(Iter)}.}  
 #'
 #' @author Adam Lund
 #' 
 #' Maintainer: Adam Lund, \email{adam.lund@@math.ku.dk}
 #' 
 #' @references 
-#' Lund, A. and N. R. Hansen (2017). Sparse Network  Estimation for  Dynamical Spatio-temporal Array Models. 
-#'  \emph{ArXiv}. 
+#' Lund, A., M. Vincent, and N. R. Hansen (2017). Penalized estimation in 
+#' large-scale generalized linear array models. 
+#' \emph{Journal of Computational and Graphical Statistics}, 26, 3, 709-724.  url = {https://doi.org/10.1080/10618600.2017.1279548}.
+#' 
+#' Lund, A. and N. R. Hansen (2019). Sparse Network  Estimation for  Dynamical Spatio-temporal Array Models. 
+#'  \emph{Journal of Multivariate Analysis}, 174. url = {https://doi.org/10.1016/j.jmva.2019.104532}.  
 #'  
 #' @examples 
-#' \dontrun{
+#' \donttest{ 
 #' ##size of example 
 #' n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 12; p2 <- 6; p3 <- 4
 #' 
@@ -149,11 +168,12 @@
 #' Beta3 <- matrix(rnorm(p3) * rbinom(p3, 1, 0.5), p3, 1)
 #' Beta <- outer(Beta12, c(Beta3))
 #' Mu <- RH(X3, RH(X2, RH(X1, Beta)))
-#' Y <- array(rnorm(n, Mu), dim = c(n1, n2, n3))  
+#' Y <- array(rnorm(n1 * n2 * n3, Mu), dim = c(n1, n2, n3))  
 #' 
 #' system.time(fit <- glamlassoRR(X, Y))
 #' 
 #' modelno  <- length(fit$lambda)
+#' oldmfrow <- par()$mfrow
 #' par(mfrow = c(1, 3))
 #' plot(c(Beta), type = "h")
 #' points(c(Beta))
@@ -164,6 +184,7 @@
 #' plot(c(Beta3), ylim = range(Beta3, fit$coef3[, modelno]), type = "h")
 #' points(c(Beta3))
 #' lines(fit$coef3[, modelno], col = "red", type = "h")
+#' par(mfrow = oldmfrow)
 #' 
 #' ###with non tensor design component Z
 #' q <- 5
@@ -173,6 +194,7 @@
 #' system.time(fit <- glamlassoRR(X, Y, Z))
 #' 
 #' modelno <- length(fit$lambda)
+#' oldmfrow <- par()$mfrow
 #' par(mfrow = c(2, 2))
 #' plot(c(Beta), type = "h")
 #' points(c(Beta))
@@ -186,16 +208,28 @@
 #' plot(c(alpha), ylim = range(alpha, fit$alpha[, modelno]), type = "h")
 #' points(c(alpha))
 #' lines(fit$alpha[, modelno], col = "red", type = "h")
+#' par(mfrow = oldmfrow)
 #' 
 #' ################ poisson example
-#' Beta12 <- matrix(rnorm(p1 * p2, 0, 0.5), p1, p2) * matrix(rbinom(p1 * p2, 1, 0.1), p1, p2)
+#' set.seed(7954) ## for this seed the algorithm fails to converge for default initial values!!
+#' set.seed(42)
+#' ##size of example 
+#' n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 12; p2 <- 6; p3 <- 4
+#' 
+#' ##marginal design matrices (tensor components)
+#' X1 <- matrix(rnorm(n1 * p1), n1, p1) 
+#' X2 <- matrix(rnorm(n2 * p2), n2, p2) 
+#' X3 <- matrix(rnorm(n3 * p3), n3, p3) 
+#' X <- list(X1, X2, X3)
+#' 
+#' Beta12 <- matrix(rnorm(p1 * p2, 0, 0.5) * rbinom(p1 * p2, 1, 0.1), p1, p2) 
 #' Beta3 <-  matrix(rnorm(p3, 0, 0.5) * rbinom(p3, 1, 0.5), p3, 1)
 #' Beta <- outer(Beta12, c(Beta3))
 #' Mu <- RH(X3, RH(X2, RH(X1, Beta)))
 #' Y <- array(rpois(n1 * n2 * n3, exp(Mu)), dim = c(n1, n2, n3))
-#' system.time(fit <- glamlassoRR(X, Y, family = "poisson"))
-#' 
+#' system.time(fit <- glamlassoRR(X, Y ,family = "poisson"))
 #' modelno <- length(fit$lambda)
+#' oldmfrow <- par()$mfrow
 #' par(mfrow = c(1, 3))
 #' plot(c(Beta), type = "h")
 #' points(c(Beta))
@@ -206,9 +240,9 @@
 #' plot(c(Beta3), ylim = range(Beta3, fit$coef3[, modelno]), type = "h")
 #' points(c(Beta3))
 #' lines(fit$coef3[, modelno], col = "red", type = "h")
+#' par(mfrow = oldmfrow)
+#' }
 #' 
-#'}
-
 glamlassoRR <- function(X,
                         Y, 
                         Z = NULL, 
@@ -216,7 +250,7 @@ glamlassoRR <- function(X,
                         penalty = "lasso",
                         intercept = FALSE,
                         weights = NULL,
-                        thetainit =  NULL,
+                        betainit =  NULL,
                         alphainit = NULL,
                         nlambda = 100,
                         lambdaminratio = 0.0001,
@@ -261,19 +295,19 @@ n <- prod(dimX[,1])
 p <- prod(dimX[,2])
 
 ##restrictions/initial par.
-if(is.null(thetainit)){
+if(is.null(betainit)){
   
-thetainit <- list()
-thetainit[[1]] <- matrix(0.01, p1, p2)
-thetainit[[2]] <- matrix(0.01, p3, 1)
+betainit <- list()
+betainit[[1]] <- matrix(0.01, p1, p2)
+betainit[[2]] <- matrix(0.01, p3, 1)
 
 }else{
 
-if(length(thetainit) == 2){
+if(length(betainit) == 2){
 
-if(max(abs(c(dim(thetainit[[1]]), dim(thetainit[[2]])[1])) - c(p1, p2, p3)) != 0){
+if(max(abs(c(dim(betainit[[1]]), dim(betainit[[2]])[1])) - c(p1, p2, p3)) != 0){
 
-stop("dimensions of parameter array (",c(dim(thetainit[[1]]), dim(thetainit[[2]])[1]),") incorrect")
+stop("dimensions of parameter array (",c(dim(betainit[[1]]), dim(betainit[[2]])[1]),") incorrect")
 
 }
 
@@ -367,7 +401,7 @@ makelamb <- 0
 }
 
 ####check on penaltyfactor
-if(length(thetainit) == 2){
+if(length(betainit) == 2){
 
 if(is.null(penaltyfactor[1]) & is.null(penaltyfactor[2])){
 penaltyfactor[[1]] <- matrix(1, p1, p2)
@@ -383,9 +417,9 @@ penaltyfactor[[2]] <- matrix(1, p3, 1)
 
 }
 
-if(length(penaltyfactor) != length(thetainit)){
+if(length(penaltyfactor) != length(betainit)){
 
-stop(paste("parameter list length (",length(thetainit),") not equal to penaltyfactor length (",length(penaltyfactor),")"))
+stop(paste("parameter list length (",length(betainit),") not equal to penaltyfactor length (",length(penaltyfactor),")"))
 
 }
 
@@ -423,7 +457,7 @@ res <- gdpg(X1, X2, X3,
             Y, Yrot,
             matrix(0, n1, n2 * n3), #V
             weights, weightsrot,
-            matrix(outer(thetainit[[1]], c(thetainit[[2]])), p1, p2 * p3), thetainit[[1]], thetainit[[2]],
+            matrix(outer(betainit[[1]], c(betainit[[2]])), p1, p2 * p3), betainit[[1]], betainit[[2]],
             alphainit, ## non ten par
             family,  
             penalty,

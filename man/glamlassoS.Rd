@@ -12,7 +12,7 @@ glamlassoS(X,
            penalty = "lasso",
            intercept = FALSE,
            weights = NULL,
-           thetainit = NULL,
+           betainit = NULL,
            alphainit = NULL,
            nlambda = 100,
            lambdaminratio = 1e-04,
@@ -56,7 +56,7 @@ When \code{intercept = TRUE} the first coulmn in the non-tensor design component
 \item{weights}{Observation weights, an array of size \eqn{n_1 \times \cdots \times n_d}. For option 
 \code{family = "binomial"} this array must contain the number of trials and must be provided.}
 
-\item{thetainit}{The initial parameter values. Default is NULL in which case all parameters are initialized at zero.}
+\item{betainit}{The initial parameter values. Default is NULL in which case all parameters are initialized at zero.}
 
 \item{alphainit}{A \eqn{q\times 1} vector containing the initial parameter values for the non-tensor parameter. 
 Default is NULL in which case all parameters are initialized at 0.}
@@ -102,9 +102,35 @@ is only employed if the objective function does not decrease. A \code{nu} close 
 sizes and presumably more backtracking in the inner loop. The default is \code{nu = 1} and the option is only 
 used if \code{iwls = "exact"}.}
 }
+\value{
+An object with S3 Class "glamlasso". 
+\item{spec}{A string indicating the model family and the penalty.}  
+\item{beta}{A \eqn{p_1\cdots p_d \times} \code{nlambda} matrix containing the 
+estimates of the parameters for the tensor structured part of the model 
+(\code{beta}) for each \code{lambda}-value.}
+\item{alpha}{A \eqn{q \times} \code{nlambda} matrix containing the estimates 
+of the parameters for the non tensor structured part of the model 
+(\code{alpha}) for each \code{lambda}-value. If \code{intercept = TRUE} the 
+first row contains the intercept estimate for each \code{lambda}-value.}
+\item{lambda}{A vector containing the sequence of penalty values used in the 
+estimation procedure.}
+\item{df}{The number of nonzero coefficients for each value of \code{lambda}.}	
+\item{dimcoef}{A vector giving the dimension of the model coefficient array 
+\eqn{\beta}.}
+\item{dimobs}{A vector giving the dimension of the observation (response) 
+array \code{Y}.}
+\item{Iter}{A list with 4 items:  \code{bt_iter_inner}  is total number of 
+backtracking steps performed in the inner loop, \code{bt_enter_inner} is the 
+number of times the backtracking is initiated in the inner loop,
+\code{bt_iter_outer} is total number of backtracking steps performed in the 
+outer loop, and \code{iter_mat} is a \code{nlambda} \eqn{\times} 
+\code{maxiterouter} matrix containing the  number of inner iterations for 
+each \code{lambda} value and each outer iteration and  \code{iter} is total 
+number of iterations i.e. \code{sum(Iter)}.}
+}
 \description{
 Efficient design matrix free procedure for fitting   a special case of  a generalized linear  model 
-with  array structured response and partially tensor structured covariates.  See \cite{Lund et al., 2017} for an application of this special purpose function.
+with  array structured response and partially tensor structured covariates.  See \cite{Lund and Hansen, 2019} for an application of this special purpose function.
 }
 \details{
 Given the setting from \code{\link{glamlasso}} we consider a model
@@ -116,8 +142,7 @@ Letting \eqn{Y} denote the  \eqn{n_1\times n_2\times n_3} response array and \eq
 the function \code{glamlassoS} solves the PMLE problem using  \eqn{Y, V, X_1, X_2} and the non-tensor component \eqn{Z} as input.
 }
 \examples{
-\dontrun{
-
+\donttest{
 ##size of example
 n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; 
 
@@ -146,6 +171,7 @@ Y <- array(rnorm(n1 * n2 * n3, Mu + array(Z \%*\% alpha, c(n1, n2, n3))), c(n1, 
 system.time(fit <- glamlassoS(X, Y, V , Z))
 
 modelno <- length(fit$lambda)
+oldmfrow <- par()$mfrow
 par(mfrow = c(1, 2))
 plot(c(Beta), type="h", ylim = range(Beta, fit$coef[, modelno]))
 points(c(Beta))
@@ -153,6 +179,7 @@ lines(fit$coef[ , modelno], col = "red", type = "h")
 plot(c(alpha), type = "h", ylim = range(alpha, fit$alpha[, modelno]))
 points(c(alpha))
 lines(fit$alpha[ , modelno], col = "red", type = "h")
+par(mfrow = oldmfrow)
 
 ################ poisson example
 Beta <- matrix(rnorm(p1 * p2, 0, 0.1) * rbinom(p1 * p2, 1, 0.1), p1 , p2)
@@ -164,12 +191,15 @@ modelno <- length(fit$lambda)
 plot(c(Beta), type = "h", ylim = range(Beta, fit$coef[, modelno]))
 points(c(Beta))
 lines(fit$coef[ , modelno], col = "red", type = "h")
-
 }
 }
 \references{
-Lund, A. and N. R. Hansen (2017). Sparse Network  Estimation for  Dynamical Spatio-temporal Array Models. 
- \emph{ArXiv}.
+Lund, A., M. Vincent, and N. R. Hansen (2017). Penalized estimation in 
+large-scale generalized linear array models. 
+\emph{Journal of Computational and Graphical Statistics}, 26, 3, 709-724.  url = {https://doi.org/10.1080/10618600.2017.1279548}.
+
+Lund, A. and N. R. Hansen (2019). Sparse Network  Estimation for  Dynamical Spatio-temporal Array Models. 
+ \emph{Journal of Multivariate Analysis}, 174. url = {https://doi.org/10.1016/j.jmva.2019.104532}.
 }
 \author{
 Adam Lund

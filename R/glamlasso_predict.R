@@ -42,7 +42,6 @@
 #' matrices each of size \eqn{n'_{i} \times p_i},  each item is an array of size \eqn{n'_1 \times \cdots \times n'_d}, with \eqn{d\in \{2,3\}}.
 #'  
 #' @examples  
-#' \dontrun{
 #' n1 <- 65; n2 <- 26; n3 <- 13; p1 <- 13; p2 <- 5; p3 <- 4
 #' X1 <- matrix(rnorm(n1 * p1), n1, p1) 
 #' X2 <- matrix(rnorm(n2 * p2), n2, p2) 
@@ -50,7 +49,7 @@
 #' Beta <- array(rnorm(p1 * p2 * p3) * rbinom(p1 * p2 * p3, 1, 0.1), c(p1 , p2, p3))
 #' mu <- RH(X3, RH(X2, RH(X1, Beta)))
 #' Y <- array(rnorm(n1 * n2 * n3, mu), dim = c(n1, n2, n3))
-#' fit <- glamlasso(list(X1, X2, X3), Y, family = "gaussian", penalty = "lasso", iwls = "exact")
+#' fit <- glamlasso(list(X1, X2, X3), Y)
 #' 
 #' ##new data in matrix form
 #' x <- matrix(rnorm(p1 * p2 * p3), nrow = 1)
@@ -61,11 +60,9 @@
 #' X2 <- matrix(rnorm(p2), nrow = 1)
 #' X3 <- matrix(rnorm(p3), nrow = 1)
 #' predict(fit, X = list(X1, X2, X3))[[100]]
-#' }
 #' 
 #' @author Adam Lund
 #' @method predict glamlasso
-#' @S3method predict glamlasso
 #' @export
 
 predict.glamlasso <- function(object, x = NULL, X = NULL, ...) {

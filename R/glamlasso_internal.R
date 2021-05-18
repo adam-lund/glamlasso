@@ -25,7 +25,7 @@
 #' @description  Internal glamlasso functions.
 #' @details These functions are not intended for use by users.
 #' @keywords internal
-#' @usage ...
+#' @usage mu(x, fam)
 #' @author Adam Lund
 
 #inverse link

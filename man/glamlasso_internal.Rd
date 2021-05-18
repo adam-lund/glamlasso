@@ -7,7 +7,7 @@
 \alias{getobj}
 \title{Internal glamlasso Functions}
 \usage{
-...
+mu(x, fam)
 }
 \description{
 Internal glamlasso functions.
