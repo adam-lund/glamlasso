@@ -1,2 +1,0 @@
-# glamlasso
-glamlasso
