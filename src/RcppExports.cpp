@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // gdpg
 Rcpp::List gdpg(arma::mat Phi1, arma::mat Phi2, arma::mat Phi3, arma::mat Psi, arma::mat Psirot, arma::mat Y, arma::mat Yrot, arma::mat V, arma::mat Weights, arma::mat Weightsrot, arma::mat Betainit, arma::mat Beta12init, arma::mat Beta3init, arma::vec alphainit, std::string family, std::string penalty, int nonten, std::string iwls, double nu, arma::vec lambda, int makelamb, int nlambda, double lambdaminratio, arma::mat penaltyfactor, arma::mat penaltyfactor12, arma::mat penaltyfactor3, arma::mat penaltyfactoralpha, double reltolprox, double reltolnewt, double reltolalt, int maxiter, int steps, int maxiterprox, int maxiternewt, int maxalt, int btproxmax, int btnewtmax, int weightedgaussian, int S, int RR, int n1, int n2, int n3);
 RcppExport SEXP _glamlasso_gdpg(SEXP Phi1SEXP, SEXP Phi2SEXP, SEXP Phi3SEXP, SEXP PsiSEXP, SEXP PsirotSEXP, SEXP YSEXP, SEXP YrotSEXP, SEXP VSEXP, SEXP WeightsSEXP, SEXP WeightsrotSEXP, SEXP BetainitSEXP, SEXP Beta12initSEXP, SEXP Beta3initSEXP, SEXP alphainitSEXP, SEXP familySEXP, SEXP penaltySEXP, SEXP nontenSEXP, SEXP iwlsSEXP, SEXP nuSEXP, SEXP lambdaSEXP, SEXP makelambSEXP, SEXP nlambdaSEXP, SEXP lambdaminratioSEXP, SEXP penaltyfactorSEXP, SEXP penaltyfactor12SEXP, SEXP penaltyfactor3SEXP, SEXP penaltyfactoralphaSEXP, SEXP reltolproxSEXP, SEXP reltolnewtSEXP, SEXP reltolaltSEXP, SEXP maxiterSEXP, SEXP stepsSEXP, SEXP maxiterproxSEXP, SEXP maxiternewtSEXP, SEXP maxaltSEXP, SEXP btproxmaxSEXP, SEXP btnewtmaxSEXP, SEXP weightedgaussianSEXP, SEXP SSEXP, SEXP RRSEXP, SEXP n1SEXP, SEXP n2SEXP, SEXP n3SEXP) {
@@ -78,4 +83,15 @@ BEGIN_RCPP
     rcpp_result_gen = Rcpp::wrap(getobj(Y, Weights, Phi1, Phi2, Phi3, beta, lambda, penaltyfactor, family, penalty));
     return rcpp_result_gen;
 END_RCPP
+}
+
+static const R_CallMethodDef CallEntries[] = {
+    {"_glamlasso_gdpg", (DL_FUNC) &_glamlasso_gdpg, 43},
+    {"_glamlasso_getobj", (DL_FUNC) &_glamlasso_getobj, 10},
+    {NULL, NULL, 0}
+};
+
+RcppExport void R_init_glamlasso(DllInfo *dll) {
+    R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
+    R_useDynamicSymbols(dll, FALSE);
 }
